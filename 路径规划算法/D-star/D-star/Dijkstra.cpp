@@ -6,13 +6,13 @@ Graph_DG::Graph_DG(int vexnum, int edge) {
 	this->vexnum = vexnum;
 	this->edge = edge;
 	//为邻接矩阵开辟空间和赋初值
-	arc = new int*[this->vexnum];
+	arc = new int*[this->vexnum]; //每个数组内部由多个小块构成
 	dis = new Dis[this->vexnum];
 	for (int i = 0; i < this->vexnum; i++) {
 		arc[i] = new int[this->vexnum];
 		for (int k = 0; k < this->vexnum; k++) {
 			//邻接矩阵初始化为无穷大
-			arc[i][k] = INT_MAX;
+			arc[i][k] = INT_MAX;  //在limit.h中声明
 		}
 	}
 }
@@ -69,7 +69,7 @@ void Graph_DG::print() {
 				cout << arc[count_row][count_col] << " ";
 			++count_col;
 		}
-		cout << endl;
+		cout << endl; //换行打印
 		++count_row;
 	}
 }
@@ -77,14 +77,14 @@ void Graph_DG::Dijkstra(int begin){
 	//首先初始化我们的dis数组
 	int i;
 	for (i = 0; i < this->vexnum; i++) {
-		//设置当前的路径
+		//设置当前的路径，V1到各个顶点的weight值
 		dis[i].path = "v" + to_string(begin) + "-->v" + to_string(i + 1);
 		dis[i].value = arc[begin - 1][i];
 	}
+	//设置节点之间的距离值
 	//设置起点的到起点的路径为0
 	dis[begin - 1].value = 0;
 	dis[begin - 1].visit = true;
-
 	int count = 1;
 	//计算剩余的顶点的最短路径（剩余this->vexnum-1个顶点）
 	while (count != this->vexnum) {
@@ -95,7 +95,7 @@ void Graph_DG::Dijkstra(int begin){
 		for (i = 0; i < this->vexnum; i++) {
 			if (!dis[i].visit && dis[i].value<min) {
 				min = dis[i].value;
-				temp = i;
+				temp = i;// 记录下标
 			}
 		}
 		//cout << temp + 1 << "  "<<min << endl;
@@ -106,6 +106,7 @@ void Graph_DG::Dijkstra(int begin){
 			//注意这里的条件arc[temp][i]!=INT_MAX必须加，不然会出现溢出，从而造成程序异常
 			if (!dis[i].visit && arc[temp][i] != INT_MAX && (dis[temp].value + arc[temp][i]) < dis[i].value) {
 				//如果新得到的边可以影响其他为访问的顶点，那就就更新它的最短路径和长度
+				//通过新顶点到达源点的路径更短了
 				dis[i].value = dis[temp].value + arc[temp][i];
 				dis[i].path = dis[temp].path + "-->v" + to_string(i + 1);
 			}

@@ -10,17 +10,18 @@ bool check(int Vexnum, int edge) {
 }
 int main() {
 	int vexnum; int edge;
-
-	cout << "输入图的顶点个数和边的条数：" << endl;
-	cin >> vexnum >> edge;
-	while (!check(vexnum, edge)) {
-		cout << "输入的数值不合法，请重新输入" << endl;
-		cin >> vexnum >> edge;
-	}
-	Graph_DG graph(vexnum, edge);
+	vexnum = 6;
+	edge = 8;
+	//cout << "输入图的顶点个数和边的条数：" << endl;
+	//cin >> vexnum >> edge;
+	//while (!check(vexnum, edge)) {
+	//	cout << "输入的数值不合法，请重新输入" << endl;
+	//	cin >> vexnum >> edge;
+	//}
+	Graph_DG graph(vexnum, edge); //由输入上传值
 	graph.createGraph();
 	graph.print();
-	graph.Dijkstra(1);
+	graph.Dijkstra(1);  // begin =1
 	graph.print_path(1);
 	system("pause");
 	return 0;
