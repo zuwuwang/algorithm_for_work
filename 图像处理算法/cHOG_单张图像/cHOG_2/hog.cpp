@@ -34,7 +34,7 @@ using namespace std;
 
 int main()
 {
-	Mat picture = imread("1.jpg", 0);//灰度
+	Mat picture = imread("01.jpg", 0);//灰度
 	Mat img;
 
 	picture.convertTo(img, CV_32F);	//转换成浮点

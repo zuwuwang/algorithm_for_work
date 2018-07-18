@@ -17,6 +17,7 @@ using namespace cv::ml;
 //定义原始输入图像的宽高
 const int imgWidth = 14;
 const int imgHigh = 23;
+const string dataPath = format("charData");  // 指定数据集的路径，or TowerData instead
 
 int SVM_TEST()
 {
@@ -35,7 +36,7 @@ int SVM_TEST()
 	{
 		for (int j = 1; j < 5; j++)
 		{
-			string path = format("data\\%d%d.png", i, j);
+			string path = format("%s\\%d%d.png",dataPath, i, j);
 			Mat img = imread(path, 0);
 			//Canny(img, img, 50, 100);
 
@@ -78,7 +79,7 @@ int SVM_TEST()
 			Mat testMat(1, smpW * smpH, CV_32FC1);
 			float * testData = testMat.ptr<float>(0);
 
-			string path = format("data\\%d%d.png", i, j);
+			string path = format("%s\\%d%d.png",dataPath, i, j);
 			Mat img = imread(path, 0);
 			//Canny(img, img, 50, 100);
 
@@ -124,7 +125,7 @@ int ANN_TEST()
 	{
 		for (int j = 1; j < 5; j++)
 		{
-			string path = format("data\\%d%d.png", i, j);
+			string path = format("%s\\%d%d.png",dataPath, i, j);
 			Mat img = imread(path, 0);
 			if (img.empty())
 			{
@@ -183,7 +184,7 @@ int ANN_TEST()
 			Mat testMat(1, smpW * smpH, CV_32FC1);
 			float * testData = testMat.ptr<float>(0);
 
-			string path = format("data\\%d%d.png", i, j);
+			string path = format("%s\\%d%d.png",dataPath, i, j);
 			Mat img = imread(path, 0);
 			//Canny(img, img, 50, 100);
 
@@ -216,7 +217,7 @@ int imgResize()
 	{
 		for (int j = 1; j < 8; j++)
 		{
-			string path = format("data\\%d%d.png", i, j);
+			string path = format("%s\\%d%d.png",dataPath, i, j);
 			Mat img = imread(path, 0);
 			if (img.empty())
 			{
@@ -231,11 +232,13 @@ int imgResize()
 	}
 	return 0;
 }
+
+
 int main()
 {
 	// 读入所有图像，并把所有图像resize为制定大小并保存
 	imgResize();
-	// 提取HOG特征，保存HOG特征图像
+	// 提取HOG特征，保存HOG特征图像计算梯度直方图
 	// TODO
 
 	// 读入HOG图像进行训练和分类测试
