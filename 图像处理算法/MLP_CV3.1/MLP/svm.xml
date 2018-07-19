@@ -6,7 +6,7 @@
   <kernel>
     <type>LINEAR</type></kernel>
   <C>1.</C>
-  <term_criteria><iterations>100</iterations></term_criteria>
+  <term_criteria><iterations>1000</iterations></term_criteria>
   <var_count>322</var_count>
   <class_count>2</class_count>
   <class_labels type_id="opencv-matrix">
@@ -14,7 +14,7 @@
     <cols>1</cols>
     <dt>i</dt>
     <data>
-      -1 1</data></class_labels>
+      0 1</data></class_labels>
   <sv_total>1</sv_total>
   <support_vectors>
     <_>
@@ -201,7 +201,7 @@
   <decision_functions>
     <_>
       <sv_count>1</sv_count>
-      <rho>6.6139552741801055e-002</rho>
+      <rho>6.6139552741799598e-002</rho>
       <alpha>
         1.</alpha></_></decision_functions></opencv_ml_svm>
 </opencv_storage>
