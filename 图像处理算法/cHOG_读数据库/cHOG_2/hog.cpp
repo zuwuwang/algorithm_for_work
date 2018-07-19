@@ -32,7 +32,14 @@ Copyright (c) 2015 Jingshuang Hu
 using namespace cv;
 using namespace std;
 
-const string srcData = format("images\\srcImg");
+/** 
+	debug模式下报错
+const string root = format("images");
+const string srcImg = format("srcImg");
+const string gammaImg = format("gammaImg");
+const string gradientImg = format("gradientImg");
+****/
+
 const int classNum = 3;
 const int imgNum = 18;
 
@@ -50,8 +57,9 @@ int main()
 	{
 		for (int j = 1; j < imgNum; j++)
 		{
-			string path = format("images\\srcImg\\%d%d.jpg", i, j);
-			Mat srcImg = imread(path, CV_LOAD_IMAGE_GRAYSCALE);//以灰度图形式读入
+			string srcImgPath = format("images\\srcImg\\%d%d.jpg", i, j);
+			string gradientImgPath = format("images\\gradientImg\\%d%d.jpg",i,j);
+			Mat srcImg = imread(srcImgPath, CV_LOAD_IMAGE_GRAYSCALE);//以灰度图形式读入
 			
 			imgCount++;
 			if (srcImg.empty())
@@ -62,10 +70,12 @@ int main()
 			//Mat picture = imread("1.jpg", 0);//灰度
 			Mat picture = srcImg;
 			Mat img;
-
 			picture.convertTo(img, CV_32F);	//转换成浮点
+			
 			sqrt(img, img);					//gamma校正
+
 			// 考虑使图像对比度增强，使得杆塔更加明显
+			// do something here
 			normalize(img, img, 0, 255, NORM_MINMAX, CV_32F);//归一化[0,255]浮点数
 
 			Mat gradientImg = Mat::zeros(img.rows, img.cols, CV_32F);//梯度
@@ -91,6 +101,7 @@ int main()
 			imshow("灰度图", picture);
 			imshow("Gamma校正后", img);
 			imshow("梯度图", gradientImg);
+			imwrite(gradientImgPath, gradientImg);
 			cout << imgCount << endl;
  			waitKey();
 		}
