@@ -41,7 +41,7 @@ const string gradientImg = format("gradientImg");
 ****/
 
 const int classNum = 3;
-const int imgNum = 18;
+const int imgNum = 50;// jpg = 18,png = 50
 
 Mat getHOG(Mat srcImg)
 {
@@ -55,10 +55,11 @@ int main()
 	int imgCount = 0;
 	for (int i = 0; i < classNum; i++)
 	{
-		for (int j = 1; j < imgNum; j++)
+		for (int j = 1; j <= imgNum; j++)
 		{
-			string srcImgPath = format("images\\srcImg\\%d%d.jpg", i, j);
-			string gradientImgPath = format("images\\gradientImg\\%d%d.jpg",i,j);
+			// jpg or png?
+			string srcImgPath = format("images\\srcImg\\charData\\%d%d.png", i, j);
+			string gradientImgPath = format("images\\gradientImg\\charData\\%d%d.png",i,j);
 			Mat srcImg = imread(srcImgPath, CV_LOAD_IMAGE_GRAYSCALE);//以灰度图形式读入
 			
 			imgCount++;
@@ -80,18 +81,35 @@ int main()
 
 			Mat gradientImg = Mat::zeros(img.rows, img.cols, CV_32F);//梯度
 			Mat theta = Mat::zeros(img.rows, img.cols, CV_32F);//角度
+			
+			Mat Gx = Mat::zeros(img.rows, img.cols, CV_32F);//梯度
+			Mat Gy = Mat::zeros(img.rows, img.cols, CV_32F);
 
+			Mat gradscal_x = Mat::zeros(img.rows, img.cols, CV_32F);//水平梯度分量
+			Mat gradscal_y = Mat::zeros(img.rows, img.cols, CV_32F);//竖直梯度分量
+
+			Mat kernel_x(1, 3, CV_32F, Scalar(-1, 0, 1));//[-1,0,1]梯度算子
+			Mat kernel_y(1, 3, CV_32F, Scalar(1, 0, -1));
+			
+			//图像卷积操作，即滤波操作，在opencv中已经封装成为了函数，注意学习其底层实现方式
+			filter2D(img, gradscal_x, img.depth(), kernel_x);
+			filter2D(img, gradscal_y, img.depth(), kernel_y);
 			for (int i = 1; i < img.rows - 1; i++)
 			{
 				for (int j = 1; j < img.cols - 1; j++)
 				{
+					/*
 					float Gx, Gy;
-
 					Gx = img.at<float>(i, j + 1) - img.at<float>(i, j - 1);
 					Gy = img.at<float>(i + 1, j) - img.at<float>(i - 1, j);
-
 					gradientImg.at<float>(i, j) = sqrt(Gx * Gx + Gy * Gy);//梯度模值
 					theta.at<float>(i, j) = float(atan2(Gy, Gx) * 180 / CV_PI);//梯度方向[-180°，180°]
+					*/
+
+					Gx.at<float>(i, j) = gradscal_x.at<float>(i, j + 1) - gradscal_x.at<float>(i, j - 1);
+					Gy.at<float>(i, j) = gradscal_y.at<float>(i + 1, j) - gradscal_y.at<float>(i - 1, j);
+					gradientImg.at<float>(i, j) = sqrt(Gx.at<float>(i, j)*Gx.at<float>(i, j) + Gy.at<float>(i, j)*Gy.at<float>(i, j));
+					theta.at<float>(i, j) = float(atan2(Gy.at<float>(i, j), Gx.at<float>(i, j)) * 180 / CV_PI);
 				}
 			}
 
@@ -103,7 +121,8 @@ int main()
 			imshow("梯度图", gradientImg);
 			imwrite(gradientImgPath, gradientImg);
 			cout << imgCount << endl;
- 			waitKey();
+ 			// waitKey();
+			// 这里只是得到了梯度图还没有统计梯度方向和向量化
 		}
 		
 	}

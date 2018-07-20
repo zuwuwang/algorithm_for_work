@@ -144,17 +144,24 @@ int main()
 	IplImage* greyimg = GRBtoGrey(img);
 	cvShowImage("greyimage",greyimg);
 	cvWaitKey();
+
+	// 伽马校正
 	cvNamedWindow("gammaimage");
 	IplImage* gammaimg = greygamma(greyimg);
 	cvShowImage("gammaimage",gammaimg);
 	printf("gamma end\n");
 	cvWaitKey();
+
+	// 梯度图，且归一化
 	cvNamedWindow("gradientimage");
 	IplImage* gradientimage = gradientimg(gammaimg);
 	cvShowImage("gradientimage",gradientimage);
 	printf("gradient end\n");
 	cvWaitKey();
+
+	// 对梯度图处理，得到hog特征，向量化（包含cell处理）
 	int *hog_f = HogFeature(gradientimage);
+
 	system("pause");
 	return 1;
 }
