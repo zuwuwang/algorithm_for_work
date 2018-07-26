@@ -127,7 +127,7 @@ int main( int argc, char** argv )
 		 // 计算粒子区域与原跟踪区域直方图的相似程度，
 		  for( j = 0; j < num_particles; j++ )
 			{
-			  // 采样，即预测粒子位置
+			  // 粒子搜索，估计偏移后粒子的位置
 			  particles[j] = transition( particles[j], w, h, rng );
 			  s = particles[j].s;
 			  // 传入参考帧的hsv和目标区域的histo，越相似则权值越大
@@ -144,7 +144,7 @@ int main( int argc, char** argv )
 		  // 归一化，particles[i]/所有粒子权重之和
 		  // 使得所有粒子的权重之和为1（求某个粒子所占整体比例）
 		  normalize_weights( particles, num_particles );
-		  // 重(zhong)采样,提出比例低的粒子，复制权值最高的粒子作为新的粒子，保持粒子总数不变
+		  // 重(zhong)采样,提出比例低的粒子，复制权值最高的粒子作为新的粒子，放一堆粒子，直接复制过来，保持粒子总数不变
 		  new_particles = resample( particles, num_particles );
 		  free( particles );
 		  particles = new_particles;

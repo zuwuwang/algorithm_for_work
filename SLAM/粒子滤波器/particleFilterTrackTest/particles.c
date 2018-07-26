@@ -46,11 +46,12 @@ particle* init_distribution( CvRect* regions, histogram** histos, int n, int p)
     {
       width = regions[i].width;
       height = regions[i].height;
-      x = regions[i].x + width / 2; // x,y表示中心点
+      x = regions[i].x + width / 2; // x,y表示选择的第i个目标区域的中心点
       y = regions[i].y + height / 2;
+	  // 该目标处放置100个粒子
       for( j = 0; j < np; j++ )
 		{
-		  // k用来表示实际创建的粒子的个数
+		  // k用来表示实际创建的粒子的个数，当前粒子原点坐标与上一坐标
 		  particles[k].x0 = particles[k].xp = particles[k].x = x;
 		  particles[k].y0 = particles[k].yp = particles[k].y = y;
 		  particles[k].sp = particles[k].s = 1.0;
@@ -98,7 +99,7 @@ particle* init_distribution( CvRect* regions, histogram** histos, int n, int p)
   @return Returns a new particle sampled based on <EM>p</EM>'s transition
     model
 */
-// 粒子采样变换模型
+// 估计目标移动后粒子的位置
 particle transition( particle p, int w, int h, gsl_rng* rng )
 {
   float x, y, s;
@@ -183,13 +184,14 @@ particle* resample( particle* particles, int n )
       np = cvRound( particles[i].w * n ); // 淘汰弱权值样本？怎么淘汰的？保留阈值以上样本？
       for( j = 0; j < np; j++ )
 		{
-		  new_particles[k++] = particles[i];
+		  new_particles[k++] = particles[i];  //新的粒子直接复制权重最高的例子，但会降低粒子的多样性。表示目标落在这个区域的可能性越大。
+		  // 如何解决上述步骤中的粒子的多样性降低的问题，可继续研究改进
 		  if( k == n )  // 如果放满了100个粒子就退出，返回新构建的100个粒子
 			goto exit;
 		}
     }
   while( k < n )
-    new_particles[k++] = particles[0];  //复制大权值样本以填充满样本空间
+    new_particles[k++] = particles[0];  //复制最大权值样本以填充满样本空间
 
  exit:
   return new_particles;
