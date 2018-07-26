@@ -47,9 +47,13 @@ using namespace std;
 
 #define NBINS 9   //default is 9
 #define THETA 180 / NBINS
-#define CELLSIZE 8  // default is 20
+#define CELLSIZE 8  // default is 20,8 is better
 #define BLOCKSIZE 2 //default is 2
 #define R (CELLSIZE * (BLOCKSIZE) * 0.5)
+
+#define  classNum  3
+#define  imgNum  50  // jpg = 18,png = 50
+
 /********************************************************************************************************
 函数功能:
 计算积分图像
@@ -257,11 +261,23 @@ std::vector<Mat> cacHOGFeature(cv::Mat srcImage)
 
 int main()
 {
-	cv::Mat srcImage = cv::imread("test.jpg");
-	if (srcImage.empty())
-		return -1;
-	cv::imshow("srcImage ", srcImage);
-	std::vector<Mat> HOGFeatureMat = cacHOGFeature(srcImage);
-	cv::waitKey(0);
+	// HOG特征描述暂存
+
+	// 读数据集
+	for (int i = 0; i < classNum; i++)
+	{
+		for (int j = 1; j < imgNum; j++)
+		{
+			//string srcImgPath = format("images\\srcImg\\charData\\%d%d.png", i, j);
+			string srcImgPath = format("images\\srcImg\\tower\\%d%d.jpg", i, j);
+			Mat srcImage = imread(srcImgPath);
+			if (srcImage.empty())
+				break;
+			imshow("srcImg", srcImage);
+			// 提取HOG特征
+			std::vector<Mat> HOGFeatureMat = cacHOGFeature(srcImage);
+			cv::waitKey(0);
+		}
+	}
 	return 0;
 }
