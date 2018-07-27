@@ -61,12 +61,22 @@ using namespace cv::ml;
 #define R (CELLSIZE * (BLOCKSIZE) * 0.5)
 
 const int  TRAIN_IMG_ALL = 8;
+const int  TEST_IMG_ALL = 2;
 const int  CLASS_NUM = 2;
 const int  EVERY_CLASS_IMG = 4; // jpg = 18,png = 50
 const int  FEATURE_DIM = 21060;
 
 Ptr<SVM> svm = SVM::create();
 int BLOCKNUM;
+
+std::vector<Mat> CalculateIntegralHOG(Mat& srcMat);
+void cacHOGinCell(cv::Mat& HOGCellMat, cv::Rect roi, std::vector<Mat>& integrals);
+cv::Mat getHog(cv::Point pt, std::vector<cv::Mat>& integrals);
+Mat cacHOGFeature(cv::Mat srcImage, string srcImgPath);
+Mat trainTestHOGMat(string train_test, int classNum, int start, int end);
+int imgResize(string path);
+int SVM_test(Mat testHOGMat);
+int SVM_train(Mat trainHOGMat);
 /********************************************************************************************************
 函数功能:
 计算积分图像
@@ -289,10 +299,44 @@ Mat cacHOGFeature(cv::Mat srcImage, string srcImgPath)
 			//cout << HOGFeatureMat.at<float>(0, index) << endl;
 		}
 	}
-	return HOGFeatureMat;
+	return HOGFeatureMat; //返回每张图像的整个特征矩阵
 }
 
 // MLP function
+
+//得到用于训练或者测试的特征矩阵
+Mat trainTestHOGMat(string train_test, int classNum, int start, int end)
+{
+	int smpW = FEATURE_DIM;// NBINS * BLOCKNUM;
+	int smpH = 1;
+	// 准备待训练的HOG特征描述矩阵
+	Mat HOGMat(TRAIN_IMG_ALL, smpW * smpH, CV_32FC1);
+	for (int i = 0; i < classNum; i++)
+	{
+		for (int j = start; j < end; j++)
+		{
+			string path = format("images\\srcImg\\tower\\%s\\%d%d.jpg", train_test.c_str(), i, j);
+			string name = format("tower\\%s\\%d%d.jpg", train_test.c_str(), i, j);
+			imgResize(path);
+			Mat image = imread(path);
+			if (image.empty())
+				return Mat();
+			imshow(name, image);
+			waitKey(0);
+			Mat HOGFeatureMat = cacHOGFeature(image, name);
+			cout << "获取到了HOGMatVector,vector大小为：" << BLOCKNUM << endl;
+			int index = i * EVERY_CLASS_IMG + j - 1;
+			float* Data = HOGMat.ptr<float>(index);
+			cout << "将提取第" << index << "张图像的HOG特征，并将其存入待训练矩阵中" << endl;
+			cout << "---------------------------" << endl;
+			for (int n = 0; n < FEATURE_DIM; n++)
+			{
+				HOGMat.at<float>(index, n) = HOGFeatureMat.at<float>(0, n);
+			}
+		}
+	}
+	return HOGMat;
+}
 
 int SVM_train(Mat trainHOGMat)
 {
@@ -308,24 +352,31 @@ int SVM_train(Mat trainHOGMat)
 	Ptr<TrainData> train_data = TrainData::create(trainHOGMat, ROW_SAMPLE, labelsMat);
 	cout << "开始训练" << endl;
 	svm->train(train_data);
-	cout << "训练结束，保存模型..." << endl;
+	cout << "训练结束，保存模型为hogSvm.xml." << endl;
 	svm->save("hogSvm.xml");
 
 	return 0;
 }
 
-int SVM_test()
+int SVM_test(Mat testHOGMat)
 {
-	//载入测试图像
-	//提取HOG
-	//分类器测试
+	cout << "加载SVM模型hogSvm.xml." << endl;
+	svm = SVM::load<SVM>("hogSvm.xml");
+
+	//存放预测结果的矩阵
+	Mat predictionMat(1, 1, CV_32S);
+	float response = svm->predict(testHOGMat, predictionMat);
+	float* data = predictionMat.ptr<float>(0);
+	cout << "预测结果为" << data[0] << endl;
+	cout << "svm test" << endl;
 	return 0;
 }
+
 int imgResize(string path)
 {
 	for (int i = 0; i < CLASS_NUM; i++)
 	{
-		for (int j = 1; j < EVERY_CLASS_IMG; j++)
+		for (int j = 1; j < 7; j++)
 		{
 			Mat img = imread(path, 0);
 			if (img.empty())
@@ -344,55 +395,54 @@ int imgResize(string path)
 }
 
 
-
 int main()
 {
 /*【1】训练*/
 	//设置HOG特征描述符的宽高
 	cout << "准备数据中..." << endl;
-	int smpW = FEATURE_DIM;// NBINS * BLOCKNUM;
-	int smpH = 1;
 	// 准备待训练的HOG特征描述矩阵
-	Mat trainHOGMat(TRAIN_IMG_ALL, smpW * smpH, CV_32FC1);
+	Mat trainHOGMat(TRAIN_IMG_ALL, FEATURE_DIM, CV_32FC1);
+	Mat testHOGMat(TEST_IMG_ALL, FEATURE_DIM, CV_32FC1);
 	// 读原始图像，提取HOG特征描述
-	for (int i = 0; i < CLASS_NUM; i++)
-	{
-		for (int j = 1; j < EVERY_CLASS_IMG; j++)
-		{
-			//string srcImgPath = format("images\\srcImg\\charData\\%d%d.png", i, j);
-			string trainImgPath = format("images\\srcImg\\tower\\train\\%d%d.jpg", i, j);
-			string testImgPath = format("images\\srcImg\\tower\\test\\%d%d.jpg", i, j);
-			string trainName = format("tower\\train\\%d%d.jpg", i, j);
-			imgResize(trainImgPath);
-				
-			Mat trainImage = imread(trainImgPath);
-			if (trainImage.empty())
-				break;
-			imshow(trainName, trainImage);
-			waitKey(0);
+	trainHOGMat = trainTestHOGMat("train", CLASS_NUM, 1, 5);
+	//封装成函数
+	//for (int i = 0; i < CLASS_NUM; i++)
+	//{
+	//	for (int j = 1; j < EVERY_CLASS_IMG; j++)
+	//	{
+	//		string trainImgPath = format("images\\srcImg\\tower\\train\\%d%d.jpg", i, j);
+	//		string testImgPath = format("images\\srcImg\\tower\\test\\%d%d.jpg", i, j);
+	//		string trainName = format("tower\\train\\%d%d.jpg", i, j);
+	//		imgResize(trainImgPath);
+	//			
+	//		Mat trainImage = imread(trainImgPath);
+	//		if (trainImage.empty())
+	//			break;
+	//		imshow(trainName, trainImage);
+	//		waitKey(0);
 
-			// 提取整幅图像的HOG特征描述矩阵
-			Mat HOGFeatureMat = cacHOGFeature(trainImage, trainName);
-			//cv::waitKey(0);
-			cout << "获取到了HOGMatVector,vector大小为：" << BLOCKNUM << endl;
-				
-			//将特征送入指定矩阵暂存，然后一次性送入分类器
-			int featureDim = HOGFeatureMat.cols;
-			int index = i * EVERY_CLASS_IMG + j - 1;
-			float* trainData = trainHOGMat.ptr<float>(index);
-			cout << "将提取第"<<index<<"张图像的HOG特征，并将其存入待训练矩阵中" << endl;
-			cout << "---------------------------" << endl;
-			for (int n = 0; n < featureDim; n++)
-			{
-				trainHOGMat.at<float>(index,n) = HOGFeatureMat.at<float>(0, n);
-			}
-		}
-	}
+	//		// 提取整幅图像的HOG特征描述矩阵
+	//		Mat HOGFeatureMat = cacHOGFeature(trainImage, trainName);
+	//		//cv::waitKey(0);
+	//		cout << "获取到了HOGMatVector,vector大小为：" << BLOCKNUM << endl;
+	//			
+	//		//将特征送入指定矩阵暂存，然后一次性送入分类器
+	//		int featureDim = HOGFeatureMat.cols;
+	//		int index = i * EVERY_CLASS_IMG + j - 1;
+	//		float* trainData = trainHOGMat.ptr<float>(index);
+	//		cout << "将提取第"<<index<<"张图像的HOG特征，并将其存入待训练矩阵中" << endl;
+	//		cout << "---------------------------" << endl;
+	//		for (int n = 0; n < FEATURE_DIM; n++)
+	//		{
+	//			trainHOGMat.at<float>(index,n) = HOGFeatureMat.at<float>(0, n);
+	//		}
+	//	}
+	//}
 	cout << "数据准备完毕，初始化SVM，准备训练" << endl;
 	SVM_train(trainHOGMat);
 	
-	//svm = SVM::load<SVM>("svm.xml");
-	SVM_test();
+	testHOGMat = trainTestHOGMat("test", CLASS_NUM, 5, 6);
+	SVM_test(testHOGMat);
 	cout << "程序结束" << endl;
 	waitKey();
 	return 0;
