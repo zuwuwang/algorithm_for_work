@@ -79,6 +79,8 @@ Mat getTrainTestHOGMat(Mat HOGMat, string train_test, int classNum, int start, i
 int imgResize(string path);
 int SVM_test(Mat testHOGMat);
 int SVM_train(Mat trainHOGMat);
+int ANN_MLP_train(Mat HOGMat);
+int ANN_MLP_test(Mat HOGMat);
 /********************************************************************************************************
 函数功能:
 计算积分图像
@@ -319,6 +321,7 @@ Mat getTrainTestHOGMat(Mat HOGMat, string train_test, int classNum, int start, i
 		{
 			string path = format("images\\srcImg\\charData\\%s\\%d%d.png", train_test.c_str(), i, j);
 			string name = format("charData\\%s\\%d%d.png", train_test.c_str(), i, j);
+			cout << name << endl;
 			imgResize(path);
 			Mat image = imread(path);
 			if (image.empty())
@@ -342,7 +345,8 @@ Mat getTrainTestHOGMat(Mat HOGMat, string train_test, int classNum, int start, i
 			}
 			if (test)
 			{
-				SVM_test(HOGMat);
+				// SVM_test(HOGMat);
+				ANN_MLP_test(HOGMat);
 			}
 		}
 	}
@@ -405,7 +409,91 @@ int imgResize(string path)
 	return 0;
 }
 
+int ANN_MLP_train(Mat trainMat)
+{
+	float labels[120][3] = {
+		{ 1, 0, 0 }, { 1, 0, 0 }, { 1, 0, 0 }, { 1, 0, 0 }, { 1, 0, 0 }, { 1, 0, 0 }, { 1, 0, 0 }, { 1, 0, 0 }, { 1, 0, 0 }, { 1, 0, 0 },
+		{ 1, 0, 0 }, { 1, 0, 0 }, { 1, 0, 0 }, { 1, 0, 0 }, { 1, 0, 0 }, { 1, 0, 0 }, { 1, 0, 0 }, { 1, 0, 0 }, { 1, 0, 0 }, { 1, 0, 0 },
+		{ 1, 0, 0 }, { 1, 0, 0 }, { 1, 0, 0 }, { 1, 0, 0 }, { 1, 0, 0 }, { 1, 0, 0 }, { 1, 0, 0 }, { 1, 0, 0 }, { 1, 0, 0 }, { 1, 0, 0 },
+		{ 1, 0, 0 }, { 1, 0, 0 }, { 1, 0, 0 }, { 1, 0, 0 }, { 1, 0, 0 }, { 1, 0, 0 }, { 1, 0, 0 }, { 1, 0, 0 }, { 1, 0, 0 }, { 1, 0, 0 },
 
+		{ 0, 1, 0 }, { 0, 1, 0 }, { 0, 1, 0 }, { 0, 1, 0 }, { 0, 1, 0 }, { 0, 1, 0 }, { 0, 1, 0 }, { 0, 1, 0 }, { 0, 1, 0 }, { 0, 1, 0 },
+		{ 0, 1, 0 }, { 0, 1, 0 }, { 0, 1, 0 }, { 0, 1, 0 }, { 0, 1, 0 }, { 0, 1, 0 }, { 0, 1, 0 }, { 0, 1, 0 }, { 0, 1, 0 }, { 0, 1, 0 },
+		{ 0, 1, 0 }, { 0, 1, 0 }, { 0, 1, 0 }, { 0, 1, 0 }, { 0, 1, 0 }, { 0, 1, 0 }, { 0, 1, 0 }, { 0, 1, 0 }, { 0, 1, 0 }, { 0, 1, 0 },
+		{ 0, 1, 0 }, { 0, 1, 0 }, { 0, 1, 0 }, { 0, 1, 0 }, { 0, 1, 0 }, { 0, 1, 0 }, { 0, 1, 0 }, { 0, 1, 0 }, { 0, 1, 0 }, { 0, 1, 0 },
+
+		{ 0, 0, 1 }, { 0, 0, 1 }, { 0, 0, 1 }, { 0, 0, 1 }, { 0, 0, 1 }, { 0, 0, 1 }, { 0, 0, 1 }, { 0, 0, 1 }, { 0, 0, 1 }, { 0, 0, 1 },
+		{ 0, 0, 1 }, { 0, 0, 1 }, { 0, 0, 1 }, { 0, 0, 1 }, { 0, 0, 1 }, { 0, 0, 1 }, { 0, 0, 1 }, { 0, 0, 1 }, { 0, 0, 1 }, { 0, 0, 1 },
+		{ 0, 0, 1 }, { 0, 0, 1 }, { 0, 0, 1 }, { 0, 0, 1 }, { 0, 0, 1 }, { 0, 0, 1 }, { 0, 0, 1 }, { 0, 0, 1 }, { 0, 0, 1 }, { 0, 0, 1 },
+		{ 0, 0, 1 }, { 0, 0, 1 }, { 0, 0, 1 }, { 0, 0, 1 }, { 0, 0, 1 }, { 0, 0, 1 }, { 0, 0, 1 }, { 0, 0, 1 }, { 0, 0, 1 }, { 0, 0, 1 }
+	};  // 每个样本数据对应的输出	
+	// TODO 
+	// 改为从文件中读取label。
+	Mat labelsMat(120, 3, CV_32FC1, labels);  // 原始为8，1，行数与 列数与MLP输出相同
+	cout << "标签矩阵为：" << endl;
+	cout << labelsMat << endl;
+
+	cout << "构造MLP分类器" << endl;
+	Ptr<ANN_MLP> bp = ANN_MLP::create();
+	Mat layerSizes = (Mat_<int>(1, 3) << FEATURE_DIM, 6, 3);
+	bp->setLayerSizes(layerSizes);
+	bp->setTrainMethod(ANN_MLP::BACKPROP, 0.1, 0.1);
+	bp->setActivationFunction(ANN_MLP::SIGMOID_SYM);
+	bp->setTermCriteria(TermCriteria(TermCriteria::MAX_ITER, 1000, 1e-6));
+	cout << "训练分类器ing..." << endl;
+	bool trained = bp->train(trainMat, ROW_SAMPLE, labelsMat);
+	if (trained)
+	{
+		bp->save("ANN_MLP.xml");
+		cout << "保存训练好的模型为ANN_MLP.xml" << endl;
+	}
+	return 0;
+}
+
+int ANN_MLP_test(Mat testMat)
+{
+	Ptr<ANN_MLP> bp = ANN_MLP::create();
+	cout << "加载预模型文件 ANN_MLP.xml ..." << endl;
+	bp = ANN_MLP::load<ANN_MLP>("ANN_MLP.xml");   //加载训练好的模型
+	/*cout << bp.empty() << endl;
+	if (! bp.empty())
+	{
+		cout << "加载预训练模型失败，请先训练" << endl;
+		return -1;
+	}*/
+	cout << "加载完成" << endl;
+	Mat predictionMat(1, 3, CV_32FC1);
+	float response = bp->predict(testMat, predictionMat);  // 分类问题，则误差表示识别率
+	float* data = predictionMat.ptr<float>(0); //data[0]取出第一行第一个数
+	cout << "预测矩阵：" << predictionMat << endl;	
+	//根据输出矩阵中最大的一个，判断是哪个类别
+	//应该加入一个阈值，0.5，低于阈值时候未检测到任何目标
+	float max = data[0];
+	int tmp = 0;
+	for (int i = 0; i < predictionMat.cols; i++)
+	{
+		if (data[i]>max)
+		{
+			max = data[i];
+			tmp = i;
+		}
+	}
+	if (max > 0.5)
+	{
+		switch (tmp)
+		{
+			case 0: cout << "预测结果为：" << "第0类," << "概率为" << max << endl;  break;
+			case 1: cout << "预测结果为：" << "第1类," << "概率为" << max << endl;  break;
+			case 2: cout << "预测结果为：" << "第2类," << "概率为" << max << endl;  break;
+			default: break;
+		}
+	}
+	else
+		cout << "error 未检测到任何类别！" << endl;
+	cout << "*****************************" << endl;
+	waitKey(0);
+	return 0;
+}
 int main()
 {
 /*【1】训练*/
@@ -425,10 +513,10 @@ int main()
 	Mat trainHOGMatANN(TRAIN_IMG_ANN, FEATURE_DIM, CV_32FC1);
 	Mat testHOGMatANN(TEST_IMG_ANN, FEATURE_DIM, CV_32FC1);
 
-	trainHOGMatANN = getTrainTestHOGMat(trainHOGMatANN, "train", 3, 1, 41,false);
+	//trainHOGMatANN = getTrainTestHOGMat(trainHOGMatANN, "train", 3, 1, 41,false);
 	cout << "ANN 训练数据准备完毕" << endl;
-
-
+	//ANN_MLP_train(trainHOGMatANN);
+	testHOGMatANN = getTrainTestHOGMat(testHOGMatANN, "test", 3, 41, 50, true);
 
 	cout << "程序结束" << endl;
 	waitKey();
