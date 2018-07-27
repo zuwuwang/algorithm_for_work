@@ -60,8 +60,10 @@ using namespace cv::ml;
 #define BLOCKSIZE 2 //default is 2
 #define R (CELLSIZE * (BLOCKSIZE) * 0.5)
 
-const int  TRAIN_IMG_ALL = 8;
-const int  TEST_IMG_ALL = 2;
+const int  TRAIN_IMG_SVM = 8;
+const int  TEST_IMG_SVM = 2;
+const int  TRAIN_IMG_ANN = 120;
+const int  TEST_IMG_ANN = 27;
 const int  CLASS_NUM = 2;
 const int  EVERY_CLASS_IMG = 4; // jpg = 18,png = 50
 const int  FEATURE_DIM = 21060;
@@ -73,7 +75,7 @@ std::vector<Mat> CalculateIntegralHOG(Mat& srcMat);
 void cacHOGinCell(cv::Mat& HOGCellMat, cv::Rect roi, std::vector<Mat>& integrals);
 cv::Mat getHog(cv::Point pt, std::vector<cv::Mat>& integrals);
 Mat cacHOGFeature(cv::Mat srcImage, string srcImgPath);
-Mat trainTestHOGMat(Mat HOGMat,string train_test, int classNum, int start, int end);
+Mat getTrainTestHOGMat(Mat HOGMat, string train_test, int classNum, int start, int end,bool test);
 int imgResize(string path);
 int SVM_test(Mat testHOGMat);
 int SVM_train(Mat trainHOGMat);
@@ -305,7 +307,7 @@ Mat cacHOGFeature(cv::Mat srcImage, string srcImgPath)
 // MLP function
 
 //得到用于训练或者测试的特征矩阵
-Mat trainTestHOGMat(Mat HOGMat,string train_test, int classNum, int start, int end)
+Mat getTrainTestHOGMat(Mat HOGMat, string train_test, int classNum, int start, int end, bool test )
 {
 	int smpW = FEATURE_DIM;// NBINS * BLOCKNUM;
 	int smpH = 1;
@@ -315,12 +317,16 @@ Mat trainTestHOGMat(Mat HOGMat,string train_test, int classNum, int start, int e
 	{
 		for (int j = start; j < end; j++)
 		{
-			string path = format("images\\srcImg\\tower\\%s\\%d%d.jpg", train_test.c_str(), i, j);
-			string name = format("tower\\%s\\%d%d.jpg", train_test.c_str(), i, j);
+			string path = format("images\\srcImg\\charData\\%s\\%d%d.png", train_test.c_str(), i, j);
+			string name = format("charData\\%s\\%d%d.png", train_test.c_str(), i, j);
 			imgResize(path);
 			Mat image = imread(path);
 			if (image.empty())
+			{
+				cout << "没有读取到图像" << endl;
 				return Mat();
+			}
+				
 			imshow(name, image);
 		//	waitKey(0);
 			Mat HOGFeatureMat = cacHOGFeature(image, name);
@@ -333,7 +339,11 @@ Mat trainTestHOGMat(Mat HOGMat,string train_test, int classNum, int start, int e
 			for (int n = 0; n < FEATURE_DIM; n++)
 			{
 				HOGMat.at<float>(index, n) = HOGFeatureMat.at<float>(0, n);
-			}			
+			}
+			if (test)
+			{
+				SVM_test(HOGMat);
+			}
 		}
 	}
 	return HOGMat;
@@ -342,8 +352,8 @@ Mat trainTestHOGMat(Mat HOGMat,string train_test, int classNum, int start, int e
 int SVM_train(Mat trainHOGMat)
 {
 	//训练 CLASS_NUM 类数据，每类 EVERY_CLASS_NUM 张
-	int labels[TRAIN_IMG_ALL] = { 0, 0, 0, 0, 1, 1, 1, 1 };
-	Mat labelsMat(TRAIN_IMG_ALL, 1, CV_32SC1, labels);  //将label变成矩阵的形式，数据类型要为CV_32SC1
+	int labels[TRAIN_IMG_SVM] = { 0, 0, 0, 0, 1, 1, 1, 1 };
+	Mat labelsMat(TRAIN_IMG_SVM, 1, CV_32SC1, labels);  //将label变成矩阵的形式，数据类型要为CV_32SC1
 	Ptr<SVM> svm = SVM::create();
 	svm->setType(SVM::C_SVC);
 	svm->setKernel(SVM::LINEAR);
@@ -401,49 +411,25 @@ int main()
 /*【1】训练*/
 	//设置HOG特征描述符的宽高
 	cout << "准备数据中..." << endl;
-	// 准备待训练的HOG特征描述矩阵
-	Mat trainHOGMat(TRAIN_IMG_ALL, FEATURE_DIM, CV_32FC1);
-	Mat testHOGMat(TEST_IMG_ALL, FEATURE_DIM, CV_32FC1);
-	// 读原始图像，提取HOG特征描述
-	trainHOGMat = trainTestHOGMat(trainHOGMat,"train", CLASS_NUM, 1, 5);
-	//封装成函数
-	//for (int i = 0; i < CLASS_NUM; i++)
-	//{
-	//	for (int j = 1; j < EVERY_CLASS_IMG; j++)
-	//	{
-	//		string trainImgPath = format("images\\srcImg\\tower\\train\\%d%d.jpg", i, j);
-	//		string testImgPath = format("images\\srcImg\\tower\\test\\%d%d.jpg", i, j);
-	//		string trainName = format("tower\\train\\%d%d.jpg", i, j);
-	//		imgResize(trainImgPath);
-	//			
-	//		Mat trainImage = imread(trainImgPath);
-	//		if (trainImage.empty())
-	//			break;
-	//		imshow(trainName, trainImage);
-	//		waitKey(0);
+	//// 准备待训练的HOG特征描述矩阵
+	//Mat trainHOGMat(TRAIN_IMG_SVM, FEATURE_DIM, CV_32FC1);
+	//Mat testHOGMat(TEST_IMG_SVM, FEATURE_DIM, CV_32FC1);
+	//// 读原始图像，提取HOG特征描述
+	//trainHOGMat = getTrainTestHOGMat(trainHOGMat, "train", CLASS_NUM, 1, 5,false);
+	//cout << "数据准备完毕，准备训练SVM..." << endl;
+	//SVM_train(trainHOGMat);
+	//testHOGMat = getTrainTestHOGMat(testHOGMat, "test", CLASS_NUM, 5, 6,true);
+	//SVM_test(testHOGMat);  //每获得一张图像就需要检测
 
-	//		// 提取整幅图像的HOG特征描述矩阵
-	//		Mat HOGFeatureMat = cacHOGFeature(trainImage, trainName);
-	//		//cv::waitKey(0);
-	//		cout << "获取到了HOGMatVector,vector大小为：" << BLOCKNUM << endl;
-	//			
-	//		//将特征送入指定矩阵暂存，然后一次性送入分类器
-	//		int featureDim = HOGFeatureMat.cols;
-	//		int index = i * EVERY_CLASS_IMG + j - 1;
-	//		float* trainData = trainHOGMat.ptr<float>(index);
-	//		cout << "将提取第"<<index<<"张图像的HOG特征，并将其存入待训练矩阵中" << endl;
-	//		cout << "---------------------------" << endl;
-	//		for (int n = 0; n < FEATURE_DIM; n++)
-	//		{
-	//			trainHOGMat.at<float>(index,n) = HOGFeatureMat.at<float>(0, n);
-	//		}
-	//	}
-	//}
-	cout << "数据准备完毕，初始化SVM，准备训练" << endl;
-	SVM_train(trainHOGMat);
-	
-	testHOGMat = trainTestHOGMat(testHOGMat,"test", CLASS_NUM, 5, 6);
-	SVM_test(testHOGMat);
+	/*  ANN  */
+	Mat trainHOGMatANN(TRAIN_IMG_ANN, FEATURE_DIM, CV_32FC1);
+	Mat testHOGMatANN(TEST_IMG_ANN, FEATURE_DIM, CV_32FC1);
+
+	trainHOGMatANN = getTrainTestHOGMat(trainHOGMatANN, "train", 3, 1, 41,false);
+	cout << "ANN 训练数据准备完毕" << endl;
+
+
+
 	cout << "程序结束" << endl;
 	waitKey();
 	return 0;
