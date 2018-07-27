@@ -42,8 +42,17 @@ Win7 + OpenCv2.4.8 + VS2012
 //#include <opencv2/nonfree/features2d.hpp>
 #include <iostream>
 
-using namespace cv;
+// MLP
+#include <string>
+#include <vector> 
+#include <opencv2/core.hpp>
+#include <opencv2/imgproc.hpp>
+#include "opencv2/imgcodecs.hpp"
+#include <opencv2/ml.hpp>
+
 using namespace std;
+using namespace cv;
+using namespace cv::ml;
 
 #define NBINS 9   //default is 9
 #define THETA 180 / NBINS
@@ -51,9 +60,13 @@ using namespace std;
 #define BLOCKSIZE 2 //default is 2
 #define R (CELLSIZE * (BLOCKSIZE) * 0.5)
 
-#define  classNum  3
-#define  imgNum  50  // jpg = 18,png = 50
+const int  TRAIN_IMG_ALL = 8;
+const int  CLASS_NUM = 2;
+const int  EVERY_CLASS_IMG = 4; // jpg = 18,png = 50
+const int  FEATURE_DIM = 21060;
 
+Ptr<SVM> svm = SVM::create();
+int BLOCKNUM;
 /********************************************************************************************************
 函数功能:
 计算积分图像
@@ -204,19 +217,24 @@ cv::Mat getHog(cv::Point pt, std::vector<cv::Mat>& integrals)
 	return hist;
 }
 
-//计算整幅图像的HOG梯度方向直方图---HOG特征
-std::vector<Mat> cacHOGFeature(cv::Mat srcImage)
+//计算整幅图像的HOG梯度方向直方图---HOG特征，并把整幅图HOG特征描述放入指定矩阵中
+Mat cacHOGFeature(cv::Mat srcImage, string srcImgPath)
 {
 	cv::Mat          grayImage;
-	std::vector<Mat> HOGMatVector;
+	
 	cv::cvtColor(srcImage, grayImage, CV_RGB2GRAY);
 	grayImage.convertTo(grayImage, CV_8UC1);// 变成单通道的灰度图
-
+	
+	 std::vector<Mat> HOGFeatureVector;
+	//这里定义全局的HOGMatVector，便于在svmtrain中获取其大小
+	//HOGMatVector.clear();
+	 cout << " 函数内：" << HOGFeatureVector.size() << endl;
+	
 	//【1】9个不同梯度方向上的9张梯度幅值的积分图像的生成
 	std::vector<Mat> integrals = CalculateIntegralHOG(grayImage);
 	Mat image = grayImage.clone();   //在灰度图上画出HOG特征可视化
 	//Mat image(srcImage.rows, srcImage.cols, CV_8UC4);
-	image *= 0;
+	image *= 0.5;
 	//【2】遍历全图像，计算最终的梯度方向直方图HOG
 	cv::Mat HOGBlockMat(Size(NBINS, 1), CV_32F);
 	for (int y = CELLSIZE / 2; y < grayImage.rows; y += CELLSIZE)
@@ -241,7 +259,7 @@ std::vector<Mat> cacHOGFeature(cv::Mat srcImage)
 			//【5】最后，每得到一个Block的HOG特征向量就存入HOGMatVector，这个HOGMatVector其实就是整个图像的HOG特征向量，
 			//     当然，现在这个HOGMatVector还是个二维数组的形式，如果想要利用SVM对其进行分类的话，还需要将其拉伸为一
 			//     维特征向量
-			HOGMatVector.push_back(HOGBlockMat);
+			HOGFeatureVector.push_back(HOGBlockMat);
 			Point center(x, y);
 			//【6】绘制HOG特征图
 			for (int i = 0; i < NBINS; i++)
@@ -255,29 +273,127 @@ std::vector<Mat> cacHOGFeature(cv::Mat srcImage)
 			}
 		}
 	}
-	imshow("out", image);
-	return HOGMatVector;
+	cout << "在原灰度图上显示HOG特征图：" << endl;
+	imshow("HOG特征可视化：", image);
+	BLOCKNUM = HOGFeatureVector.size();
+	cout << "函数内：" << HOGFeatureVector.size() << endl;
+	waitKey(0);
+	// HOGFeatureVector转换成HOGFeatureMat存储
+	Mat HOGFeatureMat(1, NBINS * BLOCKNUM, CV_32FC1);
+	for (int m = 0; m < BLOCKNUM; m++)
+	{
+		for (int n = 0; n < NBINS; n++)
+		{
+			int index = m * NBINS + n;
+			HOGFeatureMat.at<float>(0, index) = HOGFeatureVector[m].at<float>(0, n);
+			//cout << HOGFeatureMat.at<float>(0, index) << endl;
+		}
+	}
+	return HOGFeatureMat;
 }
+
+// MLP function
+
+int SVM_train(Mat trainHOGMat)
+{
+	//训练 CLASS_NUM 类数据，每类 EVERY_CLASS_NUM 张
+	int labels[TRAIN_IMG_ALL] = { 0, 0, 0, 0, 1, 1, 1, 1 };
+	Mat labelsMat(TRAIN_IMG_ALL, 1, CV_32SC1, labels);  //将label变成矩阵的形式，数据类型要为CV_32SC1
+	Ptr<SVM> svm = SVM::create();
+	svm->setType(SVM::C_SVC);
+	svm->setKernel(SVM::LINEAR);
+	svm->setTermCriteria(TermCriteria(TermCriteria::MAX_ITER, 1000, 1e-6)); //训练终止条件
+
+	//设置训练数据
+	Ptr<TrainData> train_data = TrainData::create(trainHOGMat, ROW_SAMPLE, labelsMat);
+	cout << "开始训练" << endl;
+	svm->train(train_data);
+	cout << "训练结束，保存模型..." << endl;
+	svm->save("hogSvm.xml");
+
+	return 0;
+}
+
+int SVM_test()
+{
+	//载入测试图像
+	//提取HOG
+	//分类器测试
+	return 0;
+}
+int imgResize(string path)
+{
+	for (int i = 0; i < CLASS_NUM; i++)
+	{
+		for (int j = 1; j < EVERY_CLASS_IMG; j++)
+		{
+			Mat img = imread(path, 0);
+			if (img.empty())
+			{
+				return 0;
+			}
+			else
+			{
+				// 图像大小，与 FEATURESIZE 相互关联
+				resize(img, img, Size(256, 640));
+				imwrite(path, img);
+			}
+		}
+	}
+	return 0;
+}
+
+
 
 int main()
 {
-	// HOG特征描述暂存
-
-	// 读数据集
-	for (int i = 0; i < classNum; i++)
+/*【1】训练*/
+	//设置HOG特征描述符的宽高
+	cout << "准备数据中..." << endl;
+	int smpW = FEATURE_DIM;// NBINS * BLOCKNUM;
+	int smpH = 1;
+	// 准备待训练的HOG特征描述矩阵
+	Mat trainHOGMat(TRAIN_IMG_ALL, smpW * smpH, CV_32FC1);
+	// 读原始图像，提取HOG特征描述
+	for (int i = 0; i < CLASS_NUM; i++)
 	{
-		for (int j = 1; j < imgNum; j++)
+		for (int j = 1; j < EVERY_CLASS_IMG; j++)
 		{
 			//string srcImgPath = format("images\\srcImg\\charData\\%d%d.png", i, j);
-			string srcImgPath = format("images\\srcImg\\tower\\%d%d.jpg", i, j);
-			Mat srcImage = imread(srcImgPath);
-			if (srcImage.empty())
+			string trainImgPath = format("images\\srcImg\\tower\\train\\%d%d.jpg", i, j);
+			string testImgPath = format("images\\srcImg\\tower\\test\\%d%d.jpg", i, j);
+			string trainName = format("tower\\train\\%d%d.jpg", i, j);
+			imgResize(trainImgPath);
+				
+			Mat trainImage = imread(trainImgPath);
+			if (trainImage.empty())
 				break;
-			imshow("srcImg", srcImage);
-			// 提取HOG特征
-			std::vector<Mat> HOGFeatureMat = cacHOGFeature(srcImage);
-			cv::waitKey(0);
+			imshow(trainName, trainImage);
+			waitKey(0);
+
+			// 提取整幅图像的HOG特征描述矩阵
+			Mat HOGFeatureMat = cacHOGFeature(trainImage, trainName);
+			//cv::waitKey(0);
+			cout << "获取到了HOGMatVector,vector大小为：" << BLOCKNUM << endl;
+				
+			//将特征送入指定矩阵暂存，然后一次性送入分类器
+			int featureDim = HOGFeatureMat.cols;
+			int index = i * EVERY_CLASS_IMG + j - 1;
+			float* trainData = trainHOGMat.ptr<float>(index);
+			cout << "将提取第"<<index<<"张图像的HOG特征，并将其存入待训练矩阵中" << endl;
+			cout << "---------------------------" << endl;
+			for (int n = 0; n < featureDim; n++)
+			{
+				trainHOGMat.at<float>(index,n) = HOGFeatureMat.at<float>(0, n);
+			}
 		}
 	}
+	cout << "数据准备完毕，初始化SVM，准备训练" << endl;
+	SVM_train(trainHOGMat);
+	
+	//svm = SVM::load<SVM>("svm.xml");
+	SVM_test();
+	cout << "程序结束" << endl;
+	waitKey();
 	return 0;
 }
