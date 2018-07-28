@@ -49,6 +49,7 @@ Win7 + OpenCv2.4.8 + VS2012
 #include <opencv2/imgproc.hpp>
 #include "opencv2/imgcodecs.hpp"
 #include <opencv2/ml.hpp>
+#include <time.h>
 
 /*  namespace */
 using namespace std;
@@ -78,7 +79,7 @@ std::vector<Mat> CalculateIntegralHOG(Mat& srcMat);
 void cacHOGinCell(cv::Mat& HOGCellMat, cv::Rect roi, std::vector<Mat>& integrals);
 cv::Mat getHog(cv::Point pt, std::vector<cv::Mat>& integrals);
 Mat cacHOGFeature(cv::Mat srcImage, string srcImgPath);
-Mat getTrainTestHOGMat(Mat HOGMat, string train_test, int classNum, int start, int end,bool test);
+Mat getTrainTestHOGMat(string is_svm, Mat HOGMat, string train_test, int classNum, int start, int end, bool test);
 int imgResize(string path);
 int SVM_test(Mat testHOGMat);
 int SVM_train(Mat trainHOGMat);
@@ -319,7 +320,7 @@ Mat cacHOGFeature(cv::Mat srcImage, string srcImgPath)
 // MLP function
 
 //得到用于训练或者测试的特征矩阵
-Mat getTrainTestHOGMat(Mat HOGMat, string train_test, int classNum, int start, int end, bool test )
+Mat getTrainTestHOGMat(string is_svm,Mat HOGMat, string train_test, int classNum, int start, int end, bool test )
 {
 	int smpW = FEATURE_DIM;// NBINS * BLOCKNUM;
 	int smpH = 1;
@@ -332,7 +333,9 @@ Mat getTrainTestHOGMat(Mat HOGMat, string train_test, int classNum, int start, i
 			string path = format("images\\srcImg\\charData\\%s\\%d%d.png", train_test.c_str(), i, j);
 			string name = format("charData\\%s\\%d%d.png", train_test.c_str(), i, j);
 			cout << name << endl;
+			// 将图像resize到指定大小
 			imgResize(path);
+			
 			Mat image = imread(path);
 			if (image.empty())
 			{
@@ -349,7 +352,7 @@ Mat getTrainTestHOGMat(Mat HOGMat, string train_test, int classNum, int start, i
 			{
 				index = i * (end - start) + j - start;
 				float* Data = HOGMat.ptr<float>(index);
-				cout << "将提取第" << index << "张图像的HOG特征，并将其存入待训练矩阵中" << endl;
+				cout << "将提取第" << index + 1 << "张图像的HOG特征，并将其存入待训练矩阵中" << endl;
 			}
 			if (train_test == "test")
 			{
@@ -364,8 +367,10 @@ Mat getTrainTestHOGMat(Mat HOGMat, string train_test, int classNum, int start, i
 			}
 			if (test)
 			{
-				// SVM_test(HOGMat);
-				ANN_MLP_test(HOGMat,i);
+				if (is_svm == "SVM")
+					 SVM_test(HOGMat);
+				if(is_svm == "ANN") 
+					ANN_MLP_test(HOGMat,i);
 			}
 		}
 	}
@@ -385,8 +390,12 @@ int SVM_train(Mat trainHOGMat)
 	//设置训练数据
 	Ptr<TrainData> train_data = TrainData::create(trainHOGMat, ROW_SAMPLE, labelsMat);
 	cout << "开始训练" << endl;
+	clock_t a, b;
+	a = clock();
 	svm->train(train_data);
+	b = clock();
 	cout << "训练结束，保存模型为hogSvm.xml." << endl;
+	cout << "训练所用时间为:" << (double)(b - a) / CLOCKS_PER_SEC <<"seconds"<< endl;
 	svm->save("hogSvm.xml");
 
 	return 0;
@@ -460,18 +469,24 @@ int ANN_MLP_train(Mat trainMat)
 	bp->setTrainMethod(ANN_MLP::BACKPROP, 0.1, 0.1);
 	bp->setActivationFunction(ANN_MLP::SIGMOID_SYM);
 	bp->setTermCriteria(TermCriteria(TermCriteria::MAX_ITER, 1000, 1e-6));
-	cout << "训练分类器ing..." << endl;
+	cout << "开始训练啦...去喝杯咖啡吧放松下吧..." << endl;
+	clock_t a, b;
+	a = clock();
 	bool trained = bp->train(trainMat, ROW_SAMPLE, labelsMat);
+	b = clock();
+	
 	if (trained)
 	{
 		bp->save("ANN_MLP.xml");
 		cout << "保存训练好的模型为ANN_MLP.xml" << endl;
+		cout << "训练所用的时间为：" << (double)(b - a) / CLOCKS_PER_SEC << " seconds " << endl;
 	}
 	return 0;
 }
 
 int ANN_MLP_test(Mat testMat,int objClass)
 {
+	cout << "*******************************"<<endl;
 	Ptr<ANN_MLP> bp = ANN_MLP::create();
 	cout << "加载预模型文件 ANN_MLP.xml ..." << endl;
 	bp = ANN_MLP::load<ANN_MLP>("ANN_MLP.xml");   //加载训练好的模型
@@ -498,21 +513,31 @@ int ANN_MLP_test(Mat testMat,int objClass)
 			tmp = i;
 		}
 	}
-	if (max > 0.2 && tmp == objClass)
+	if (max > 0.2 )
 	{
 		switch (tmp)
 		{
-			case 0: cout << "预测结果为：" << "第0类," << "概率为" << max 
-				<< "是识别到的第" << ++testRight_0 << "个" << endl;  break;
-			case 1: cout << "预测结果为：" << "第1类," << "概率为" << max 
-				<< "是识别到的第" << ++testRight_1 << "个" << endl;  break;
-			case 2: cout << "预测结果为：" << "第2类," << "概率为" << max 
-				<< "是识别到的第" << ++testRight_2 << "个" << endl;  break;
+			case 0: cout << "预测结果为：" << "第0类," << "概率为" << max  << endl;  break;
+			case 1: cout << "预测结果为：" << "第1类," << "概率为" << max  << endl;  break;
+			case 2: cout << "预测结果为：" << "第2类," << "概率为" << max  << endl;  break;
 			default: break;
 		}
 	}
 	else
 		cout << "error 未检测到任何类别！" << endl;
+
+	if (tmp == objClass)
+	{
+		switch (tmp)
+		{
+		case 0: cout << "是识别到的第" << ++testRight_0 << "个" << endl;  break;
+		case 1: cout << "是识别到的第" << ++testRight_1 << "个" << endl;  break;
+		case 2: cout << "是识别到的第" << ++testRight_2 << "个" << endl;  break;
+		default: break;
+		}
+	}
+	else
+		cout << "识别错误，将第" << objClass << "类识别成了第" << tmp << "类" << endl;
 	cout << "*****************************" << endl;
 	//waitKey(0);
 	int classNumResault = tmp;
@@ -520,60 +545,68 @@ int ANN_MLP_test(Mat testMat,int objClass)
 	return classNumResault;
 }
 
-int getTestResault(Mat predictionMat,float* data)
-{
-	float max = data[0];
-	int tmp = 0;
-	for (int i = 0; i < predictionMat.cols; i++)
-	{
-		if (data[i]>max)
-		{
-			max = data[i];
-			tmp = i;
-		}
-	}
-	if (max > 0.2)
-	{
-		switch (tmp)
-		{
-		case 0: cout << "预测结果为：" << "第0类," << "概率为" << max << endl;  break;
-		case 1: cout << "预测结果为：" << "第1类," << "概率为" << max << endl;  break;
-		case 2: cout << "预测结果为：" << "第2类," << "概率为" << max << endl;  break;
-		default: break;
-		}
-	}
-	else
-		cout << "error 未检测到任何类别！" << endl;
-	cout << "*****************************" << endl;
-	//waitKey(0);
-	return tmp;
-}
+// 将获取结果的部分代码封装成函数
+//int getTestResault(Mat predictionMat,float* data)
+//{
+//	float max = data[0];
+//	int tmp = 0;
+//	for (int i = 0; i < predictionMat.cols; i++)
+//	{
+//		if (data[i]>max)
+//		{
+//			max = data[i];
+//			cout << max;
+//			tmp = i;
+//		}
+//	}
+//	if (max > 0.2)
+//	{
+//		switch (tmp)
+//		{
+//		case 0: cout << "预测结果为：" << "第0类," << "概率为" << max << endl;  break;
+//		case 1: cout << "预测结果为：" << "第1类," << "概率为" << max << endl;  break;
+//		case 2: cout << "预测结果为：" << "第2类," << "概率为" << max << endl;  break;
+//		default: break;
+//		}
+//	}
+//	else
+//		cout << "error 未检测到任何类别！" << endl;
+//	cout << "*****************************" << endl;
+//	//waitKey(0);
+//	return tmp;
+//}
 
 int main()
 {
-/*【1】训练*/
+/*【1】数据准备*/
 	//设置HOG特征描述符的宽高
 	cout << "准备数据中..." << endl;
-	//// 准备待训练的HOG特征描述矩阵
-	//Mat trainHOGMat(TRAIN_IMG_SVM, FEATURE_DIM, CV_32FC1);
-	//Mat testHOGMat(1, FEATURE_DIM, CV_32FC1);
-	//// 读原始图像，提取HOG特征描述
-	//trainHOGMat = getTrainTestHOGMat(trainHOGMat, "train", CLASS_NUM, 1, 5,false);
-	//cout << "数据准备完毕，准备训练SVM..." << endl;
-	//SVM_train(trainHOGMat);
-	//testHOGMat = getTrainTestHOGMat(testHOGMat, "test", CLASS_NUM, 5, 6,true);
-	//SVM_test(testHOGMat);  //每获得一张图像就需要检测
+	// 准备待训练的HOG特征描述矩阵
+	Mat trainHOGMat(TRAIN_IMG_SVM, FEATURE_DIM, CV_32FC1);
+	Mat testHOGMat(1, FEATURE_DIM, CV_32FC1);
+
+/*【2】读原始图像，提取HOG特征描述*/
+	trainHOGMat = getTrainTestHOGMat("SVM",trainHOGMat, "train", CLASS_NUM, 1, 5,false);
+	cout << "数据准备完毕，准备训练SVM..." << endl;
+
+/*【3】 训练SVM、MLP模型*/
+	/* SVM */
+	SVM_train(trainHOGMat);
+	testHOGMat = getTrainTestHOGMat("SVM",testHOGMat, "test", CLASS_NUM, 5, 6,true);
+	
 
 	/*  ANN  */
 	Mat trainHOGMatANN(TRAIN_IMG_ANN, FEATURE_DIM, CV_32FC1);
 	Mat testHOGMatANN(1, FEATURE_DIM, CV_32FC1);
-
-	//trainHOGMatANN = getTrainTestHOGMat(trainHOGMatANN, "train", 3, 1, 41,false);
-	cout << "ANN 训练数据准备完毕" << endl;
-	//ANN_MLP_train(trainHOGMatANN);
-	testHOGMatANN = getTrainTestHOGMat(testHOGMatANN, "test", 3, 41, 50, true);
-
-	cout << "程序结束" << endl;
+	trainHOGMatANN = getTrainTestHOGMat("ANN",trainHOGMatANN, "train", 3, 1, 41,false);
+	cout << "ANN 数据准备完毕，开始训练啦..." << endl;
+	ANN_MLP_train(trainHOGMatANN);
+	
+/*【4】 测试*/
+	SVM_test(testHOGMat);  //每获得一张图像就需要检测
+	testHOGMatANN = getTrainTestHOGMat("ANN", testHOGMatANN, "test", 3, 41, 50, true); //27张图片，感觉testHOGMatANN做返回值也没什么用
+	
+	cout << "程序结束咯！" << endl;
 	waitKey();
 	return 0;
 }
