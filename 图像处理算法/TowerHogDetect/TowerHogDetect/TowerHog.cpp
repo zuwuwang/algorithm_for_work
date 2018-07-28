@@ -50,10 +50,12 @@ Win7 + OpenCv2.4.8 + VS2012
 #include "opencv2/imgcodecs.hpp"
 #include <opencv2/ml.hpp>
 
+/*  namespace */
 using namespace std;
 using namespace cv;
 using namespace cv::ml;
 
+/*   define*/
 #define NBINS 9   //default is 9
 #define THETA 180 / NBINS
 #define CELLSIZE 8  // default is 20,8 is better
@@ -71,6 +73,7 @@ const int  FEATURE_DIM = 21060;
 Ptr<SVM> svm = SVM::create();
 int BLOCKNUM;
 
+/*  function declear  */
 std::vector<Mat> CalculateIntegralHOG(Mat& srcMat);
 void cacHOGinCell(cv::Mat& HOGCellMat, cv::Rect roi, std::vector<Mat>& integrals);
 cv::Mat getHog(cv::Point pt, std::vector<cv::Mat>& integrals);
@@ -80,8 +83,14 @@ int imgResize(string path);
 int SVM_test(Mat testHOGMat);
 int SVM_train(Mat trainHOGMat);
 int ANN_MLP_train(Mat HOGMat);
-int ANN_MLP_test(Mat HOGMat);
+int ANN_MLP_test(Mat HOGMat, int objClass);
 int getTestResault(Mat predictionMat, float* data);
+
+/*    variables  */
+int testRight_0 = 0;
+int testRight_1 = 0;
+int testRight_2 = 0;
+
 /********************************************************************************************************
 函数功能:
 计算积分图像
@@ -356,7 +365,7 @@ Mat getTrainTestHOGMat(Mat HOGMat, string train_test, int classNum, int start, i
 			if (test)
 			{
 				// SVM_test(HOGMat);
-				ANN_MLP_test(HOGMat);
+				ANN_MLP_test(HOGMat,i);
 			}
 		}
 	}
@@ -392,6 +401,7 @@ int SVM_test(Mat testHOGMat)
 	Mat predictionMat(1, 1, CV_32S);
 	float response = svm->predict(testHOGMat, predictionMat);
 	float* data = predictionMat.ptr<float>(0);
+	//二分类
 	cout << "预测结果为" << data[0] << endl;
 	cout << "svm test" << endl;
 	return 0;
@@ -460,7 +470,7 @@ int ANN_MLP_train(Mat trainMat)
 	return 0;
 }
 
-int ANN_MLP_test(Mat testMat)
+int ANN_MLP_test(Mat testMat,int objClass)
 {
 	Ptr<ANN_MLP> bp = ANN_MLP::create();
 	cout << "加载预模型文件 ANN_MLP.xml ..." << endl;
@@ -477,33 +487,36 @@ int ANN_MLP_test(Mat testMat)
 	float* data = predictionMat.ptr<float>(0); //data[0]取出第一行第一个数
 	cout << "预测矩阵：" << predictionMat << endl;	
 	//根据输出矩阵中最大的一个，判断是哪个类别
-	//应该加入一个阈值，0.5，低于阈值时候未检测到任何目标
-	//float max = data[0];
-	//int tmp = 0;
-	//for (int i = 0; i < predictionMat.cols; i++)
-	//{
-	//	if (data[i]>max)
-	//	{
-	//		max = data[i];
-	//		tmp = i;
-	//	}
-	//}
-	//if (max > 0.2)
-	//{
-	//	switch (tmp)
-	//	{
-	//		case 0: cout << "预测结果为：" << "第0类," << "概率为" << max << endl;  break;
-	//		case 1: cout << "预测结果为：" << "第1类," << "概率为" << max << endl;  break;
-	//		case 2: cout << "预测结果为：" << "第2类," << "概率为" << max << endl;  break;
-	//		default: break;
-	//	}
-	//}
-	//else
-	//	cout << "error 未检测到任何类别！" << endl;
-	//cout << "*****************************" << endl;
-	////waitKey(0);
-	//int classNum = tmp;
-	int classNumResault = getTestResault(predictionMat, data);
+	//应该加入一个阈值，0.4，低于阈值时候未检测到任何目标
+	float max = data[0];
+	int tmp = 0;
+	for (int i = 0; i < predictionMat.cols; i++)
+	{
+		if (data[i]>max)
+		{
+			max = data[i];
+			tmp = i;
+		}
+	}
+	if (max > 0.2 && tmp == objClass)
+	{
+		switch (tmp)
+		{
+			case 0: cout << "预测结果为：" << "第0类," << "概率为" << max 
+				<< "是识别到的第" << ++testRight_0 << "个" << endl;  break;
+			case 1: cout << "预测结果为：" << "第1类," << "概率为" << max 
+				<< "是识别到的第" << ++testRight_1 << "个" << endl;  break;
+			case 2: cout << "预测结果为：" << "第2类," << "概率为" << max 
+				<< "是识别到的第" << ++testRight_2 << "个" << endl;  break;
+			default: break;
+		}
+	}
+	else
+		cout << "error 未检测到任何类别！" << endl;
+	cout << "*****************************" << endl;
+	//waitKey(0);
+	int classNumResault = tmp;
+	//int classNumResault = getTestResault(predictionMat, data);
 	return classNumResault;
 }
 
