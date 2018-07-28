@@ -396,6 +396,7 @@ int SVM_train(Mat trainHOGMat)
 	b = clock();
 	cout << "训练结束，保存模型为hogSvm.xml." << endl;
 	cout << "训练所用时间为:" << (double)(b - a) / CLOCKS_PER_SEC <<"seconds"<< endl;
+	// 训练用时间为 0.534 秒
 	svm->save("hogSvm.xml");
 
 	return 0;
@@ -480,6 +481,7 @@ int ANN_MLP_train(Mat trainMat)
 		bp->save("ANN_MLP.xml");
 		cout << "保存训练好的模型为ANN_MLP.xml" << endl;
 		cout << "训练所用的时间为：" << (double)(b - a) / CLOCKS_PER_SEC << " seconds " << endl;
+		// 训练时间为 1565.27 秒，约为27分钟
 	}
 	return 0;
 }
