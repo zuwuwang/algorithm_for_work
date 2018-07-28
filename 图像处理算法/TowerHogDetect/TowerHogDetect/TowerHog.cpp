@@ -81,6 +81,7 @@ int SVM_test(Mat testHOGMat);
 int SVM_train(Mat trainHOGMat);
 int ANN_MLP_train(Mat HOGMat);
 int ANN_MLP_test(Mat HOGMat);
+int getTestResault(Mat predictionMat, float* data);
 /********************************************************************************************************
 函数功能:
 计算积分图像
@@ -334,11 +335,20 @@ Mat getTrainTestHOGMat(Mat HOGMat, string train_test, int classNum, int start, i
 		//	waitKey(0);
 			Mat HOGFeatureMat = cacHOGFeature(image, name);
 			cout << "获取到了HOGMatVector,vector大小为：" << BLOCKNUM << endl;
-			int index = i * (end - start) + j - start;
-			float* Data = HOGMat.ptr<float>(index);
-			cout << "将提取第" << index << "张图像的HOG特征，并将其存入待训练矩阵中" << endl;
-			cout << "---------------------------" << endl;
-
+			int index;
+			if (train_test == "train")
+			{
+				index = i * (end - start) + j - start;
+				float* Data = HOGMat.ptr<float>(index);
+				cout << "将提取第" << index << "张图像的HOG特征，并将其存入待训练矩阵中" << endl;
+			}
+			if (train_test == "test")
+			{
+				index = 0;
+				float* Data = HOGMat.ptr<float>(index);
+				cout << "识别输入的图像的特征" << endl;
+			}
+		//	cout << "---------------------------" << endl;
 			for (int n = 0; n < FEATURE_DIM; n++)
 			{
 				HOGMat.at<float>(index, n) = HOGFeatureMat.at<float>(0, n);
@@ -468,6 +478,37 @@ int ANN_MLP_test(Mat testMat)
 	cout << "预测矩阵：" << predictionMat << endl;	
 	//根据输出矩阵中最大的一个，判断是哪个类别
 	//应该加入一个阈值，0.5，低于阈值时候未检测到任何目标
+	//float max = data[0];
+	//int tmp = 0;
+	//for (int i = 0; i < predictionMat.cols; i++)
+	//{
+	//	if (data[i]>max)
+	//	{
+	//		max = data[i];
+	//		tmp = i;
+	//	}
+	//}
+	//if (max > 0.2)
+	//{
+	//	switch (tmp)
+	//	{
+	//		case 0: cout << "预测结果为：" << "第0类," << "概率为" << max << endl;  break;
+	//		case 1: cout << "预测结果为：" << "第1类," << "概率为" << max << endl;  break;
+	//		case 2: cout << "预测结果为：" << "第2类," << "概率为" << max << endl;  break;
+	//		default: break;
+	//	}
+	//}
+	//else
+	//	cout << "error 未检测到任何类别！" << endl;
+	//cout << "*****************************" << endl;
+	////waitKey(0);
+	//int classNum = tmp;
+	int classNumResault = getTestResault(predictionMat, data);
+	return classNumResault;
+}
+
+int getTestResault(Mat predictionMat,float* data)
+{
 	float max = data[0];
 	int tmp = 0;
 	for (int i = 0; i < predictionMat.cols; i++)
@@ -478,22 +519,23 @@ int ANN_MLP_test(Mat testMat)
 			tmp = i;
 		}
 	}
-	if (max > 0.5)
+	if (max > 0.2)
 	{
 		switch (tmp)
 		{
-			case 0: cout << "预测结果为：" << "第0类," << "概率为" << max << endl;  break;
-			case 1: cout << "预测结果为：" << "第1类," << "概率为" << max << endl;  break;
-			case 2: cout << "预测结果为：" << "第2类," << "概率为" << max << endl;  break;
-			default: break;
+		case 0: cout << "预测结果为：" << "第0类," << "概率为" << max << endl;  break;
+		case 1: cout << "预测结果为：" << "第1类," << "概率为" << max << endl;  break;
+		case 2: cout << "预测结果为：" << "第2类," << "概率为" << max << endl;  break;
+		default: break;
 		}
 	}
 	else
 		cout << "error 未检测到任何类别！" << endl;
 	cout << "*****************************" << endl;
-	waitKey(0);
-	return 0;
+	//waitKey(0);
+	return tmp;
 }
+
 int main()
 {
 /*【1】训练*/
@@ -501,7 +543,7 @@ int main()
 	cout << "准备数据中..." << endl;
 	//// 准备待训练的HOG特征描述矩阵
 	//Mat trainHOGMat(TRAIN_IMG_SVM, FEATURE_DIM, CV_32FC1);
-	//Mat testHOGMat(TEST_IMG_SVM, FEATURE_DIM, CV_32FC1);
+	//Mat testHOGMat(1, FEATURE_DIM, CV_32FC1);
 	//// 读原始图像，提取HOG特征描述
 	//trainHOGMat = getTrainTestHOGMat(trainHOGMat, "train", CLASS_NUM, 1, 5,false);
 	//cout << "数据准备完毕，准备训练SVM..." << endl;
@@ -511,7 +553,7 @@ int main()
 
 	/*  ANN  */
 	Mat trainHOGMatANN(TRAIN_IMG_ANN, FEATURE_DIM, CV_32FC1);
-	Mat testHOGMatANN(TEST_IMG_ANN, FEATURE_DIM, CV_32FC1);
+	Mat testHOGMatANN(1, FEATURE_DIM, CV_32FC1);
 
 	//trainHOGMatANN = getTrainTestHOGMat(trainHOGMatANN, "train", 3, 1, 41,false);
 	cout << "ANN 训练数据准备完毕" << endl;
