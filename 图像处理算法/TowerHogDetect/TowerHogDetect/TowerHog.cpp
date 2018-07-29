@@ -1,5 +1,4 @@
 /********************************************************************************************************
-文件说明:
 HOG特征描述符的实现
 算法思路:
 1)将图片加载入内存，并且利用cvtColor将图像转换为grayImg
@@ -30,12 +29,7 @@ HOG特征描述符的实现
 梯度，在计算各个区域的梯度方向和梯度幅值的话，这样计算了太大，会导致HOG的性能有所下降
 5)还有，这里的每个Cell的大小是20p*20p,每个Block的大小为4个Cell；当然如果用于行人检测的话，也可以使用
 其他的3*3或者5*5组合
-开发环境:
-Win7 + OpenCv2.4.8 + VS2012
-时间地点:
-陕西师范大学 2017.3.14
-作    者:
-九 月
+
 *********************************************************************************************************/
 #include <opencv2/opencv.hpp>
 #include <opencv2/highgui/highgui.hpp>
@@ -87,10 +81,15 @@ int ANN_MLP_train(Mat HOGMat);
 int ANN_MLP_test(Mat HOGMat, int objClass);
 int getTestResault(Mat predictionMat, float* data);
 
-/*    variables  */
+/*   用于评价的变量  */
 int testRight_0 = 0;
 int testRight_1 = 0;
 int testRight_2 = 0;
+
+/*  slidingWindow 参数  */
+#define slide_W 128
+#define slide_H 128
+#define slide_stride 100
 
 /********************************************************************************************************
 函数功能:
@@ -414,7 +413,7 @@ int SVM_test(Mat testHOGMat)
 	//二分类
 	cout << "预测结果为" << data[0] << endl;
 	cout << "svm test" << endl;
-	return 0;
+	return data[0];
 }
 
 int imgResize(string path)
@@ -486,6 +485,7 @@ int ANN_MLP_train(Mat trainMat)
 	return 0;
 }
 
+// 用于实验测试准确率
 int ANN_MLP_test(Mat testMat,int objClass)
 {
 	cout << "*******************************"<<endl;
@@ -538,7 +538,11 @@ int ANN_MLP_test(Mat testMat,int objClass)
 		default: break;
 		}
 	}
-	else
+	else if (objClass == -1)
+	{
+		cout << "检测摄像头传来的单帧图像" << endl;
+	}
+	else	
 		cout << "识别错误，将第" << objClass << "类识别成了第" << tmp << "类" << endl;
 	cout << "*****************************" << endl;
 	//waitKey(0);
@@ -580,34 +584,176 @@ int ANN_MLP_test(Mat testMat,int objClass)
 
 int main()
 {
-/*【1】数据准备*/
-	//设置HOG特征描述符的宽高
-	cout << "准备数据中..." << endl;
-	// 准备待训练的HOG特征描述矩阵
-	Mat trainHOGMat(TRAIN_IMG_SVM, FEATURE_DIM, CV_32FC1);
-	Mat testHOGMat(1, FEATURE_DIM, CV_32FC1);
+///*【1】数据准备*/
+//	//设置HOG特征描述符的宽高
+//	cout << "准备数据中..." << endl;
+//	// 准备待训练的HOG特征描述矩阵
+//	Mat trainHOGMat(TRAIN_IMG_SVM, FEATURE_DIM, CV_32FC1);
+//	Mat testHOGMat(1, FEATURE_DIM, CV_32FC1);
+//
+///*【2】读原始图像，提取HOG特征描述*/
+//	trainHOGMat = getTrainTestHOGMat("SVM",trainHOGMat, "train", CLASS_NUM, 1, 5,false);
+//	cout << "数据准备完毕，准备训练SVM..." << endl;
+//
+///*【3】 训练SVM、MLP模型*/
+//	/* SVM */
+//	SVM_train(trainHOGMat);
+//	testHOGMat = getTrainTestHOGMat("SVM",testHOGMat, "test", CLASS_NUM, 5, 6,true);
+//	
+//
+//	/*  ANN  */
+//	Mat trainHOGMatANN(TRAIN_IMG_ANN, FEATURE_DIM, CV_32FC1);
+//	Mat testHOGMatANN(1, FEATURE_DIM, CV_32FC1);
+//	trainHOGMatANN = getTrainTestHOGMat("ANN",trainHOGMatANN, "train", 3, 1, 41,false);
+//	cout << "ANN 数据准备完毕，开始训练啦..." << endl;
+//	ANN_MLP_train(trainHOGMatANN);
+//
+///*【4】 模型测试*/
+//	SVM_test(testHOGMat);  //每获得一张图像就需要检测
+//	testHOGMatANN = getTrainTestHOGMat("ANN", testHOGMatANN, "test", 3, 41, 50, true); //27张图片，感觉testHOGMatANN做返回值也没什么用
+//
 
-/*【2】读原始图像，提取HOG特征描述*/
-	trainHOGMat = getTrainTestHOGMat("SVM",trainHOGMat, "train", CLASS_NUM, 1, 5,false);
-	cout << "数据准备完毕，准备训练SVM..." << endl;
 
-/*【3】 训练SVM、MLP模型*/
-	/* SVM */
-	SVM_train(trainHOGMat);
-	testHOGMat = getTrainTestHOGMat("SVM",testHOGMat, "test", CLASS_NUM, 5, 6,true);
-	
+/*  注意 
+0、先单类实验
+1、注意训练SVM时候截取原图像大小部分区域训练，截取 size_W * size_H 大小窗口进行训练
+2、训练好的模型，去检测。这时候注意，训练用的 FEATURE_DIM 使用新的数据的 维度
+3、实际检测的时候，从原图也是获取
+这么大小的ROI区域进行检测分类
 
-	/*  ANN  */
-	Mat trainHOGMatANN(TRAIN_IMG_ANN, FEATURE_DIM, CV_32FC1);
-	Mat testHOGMatANN(1, FEATURE_DIM, CV_32FC1);
-	trainHOGMatANN = getTrainTestHOGMat("ANN",trainHOGMatANN, "train", 3, 1, 41,false);
-	cout << "ANN 数据准备完毕，开始训练啦..." << endl;
-	ANN_MLP_train(trainHOGMatANN);
+4、注意，姿态检测的时候，可以直接拿整张图像进行姿态检测
+
+*/
+
+
+
+/*【5】 滑动窗口循环获取目标区域，然后提取HOG，送入到分类器中检测*/
+	/*  
+	  1、获取摄像头图像
+	  2、设置滑窗，提取滑窗区域的图像ROI
+	  3、提取ROI区域的HOG特征向量矩阵
+	  4、将ROI的HOG特征矩阵送入SVM分类器模型进行检测，背景-目标二分类
+	  5、根据分类结果 
+				a）如果是目标，就记录当前的框的左顶点位置，放入容器中
+				b）如果不是目标，则接着找下一个slidingWindow区域
+	  6、重复执行2-5，指导遍历完图像
+	  7、对记录的pointRemembered的的point.x  point.y分别进行排序
+		 找到point.x最小的和最大的，找到point.y最小和最大的
+		 注意设置阈值，剔除误检测
+	  8、思考：深度学习中boundingbox是怎么回归的？回归的方法是怎么实现的？
+	*/ 
+	// 载入图片
+	string path = format("images//srcImg//tower//test//31.jpg");
+	Mat imgFromCam = imread(path, CV_LOAD_IMAGE_COLOR);
+	if ( imgFromCam.empty() )
+		return -1;
+	// 提取ROI
+	Mat lineSrcImg = imgFromCam.clone();  // image.clone() 图像拷贝    
+	int img_H = imgFromCam.rows;
+	int img_W = imgFromCam.cols;
+	int x = 0, y = 0;
+	int windowCount = 0;
+	vector<int> pointRemX;  //存放识别结果为目标的各个点的X坐标和Y坐标
+	vector<int> pointRemY;
+
+	Point pointA, pointB, pointC, pointD; //boundingbox 的四个坐标点
+	for (y = 0; y < img_H - slide_H; y = y + slide_stride)
+	{
+		for (x = 0; x < img_W - slide_W; x = x + slide_stride)
+		{
+			Rect slidingWindow(x, y, slide_W, slide_H);
+			cout << "滑窗的面积为：" << slidingWindow.area() << endl;
+			cout << "各个滑窗顶点坐标为:" << "(" << x << "," << y << ")" << endl;
+			Mat ROI = imgFromCam(Rect(x, y, slide_W, slide_H));
+			++windowCount;
+			string newName = format("slideWindowImgs\\%d.jpg", windowCount);
+			namedWindow("ROI", WINDOW_FREERATIO);
+			imshow("ROI", ROI);
+			imwrite(newName, ROI);
+
+			// 画框 boundingbox
+		  //	Mat lineSrcImg = imgFromCam.clone();
+			pointA.x = x;  // 左上
+			pointA.y = y;
+			pointD.x = x + slide_W;  // 右下
+			pointD.y = y + slide_H;
+			pointB.x = x + slide_W;
+			pointB.y = y;
+			pointC.x = x;
+			pointC.y = y + slide_H;
+
+			circle(lineSrcImg, pointA, 4, Scalar(0, 0, 0), -1); // thickness = -1 表示画实心圆
+			circle(lineSrcImg, pointB, 4, Scalar(0, 0, 0), -1);
+			
+			line(lineSrcImg, pointA, pointB, Scalar(0, 0, 255), 1);
+			imshow("lineSrcImg", lineSrcImg);
+			cvWaitKey(0);
+
+			circle(lineSrcImg, pointC, 4, Scalar(0, 0, 0), -1);
+			line(lineSrcImg, pointA, pointC, Scalar(0, 0, 255), 1);
+			
+			imshow("lineSrcImg", lineSrcImg);
+			cvWaitKey(0);
+		
+			circle(lineSrcImg, pointD, 4, Scalar(0, 0, 0), -1);
+			line(lineSrcImg, pointC, pointD, Scalar(0, 0, 255), 1);
+			imshow("lineSrcImg", lineSrcImg);
+			cvWaitKey(0);
+
+			line(lineSrcImg, pointD, pointB, Scalar(0, 0, 255), 1);
+			imshow("lineSrcImg", lineSrcImg);
+			cvWaitKey(0);
+
+			//// 画斜线
+			//line(srcImg, pointA, pointD, Scalar(0, 0, 255),1);
+			//imshow("lineSrcImg", srcImg);
+
+			// 检测ROI区域
+			// 检测到ROI区域是目标之后，记录位置，存入vector中
+			// 这部分需要重新做下，训练SVM的图像和检测用的ROI区域图像的宽高要一致，或者将ROI resize
+			// TODO here
+			int prediction =	SVM_test(ROI); // 这里的ROI的维度不对，应该用ROI大小的区域重新训练SVM分类器
+			if (prediction = 0)
+			{
+				cout << "检测出来的是背景，检测下一个ROI" << endl;
+				break;
+			}
+			else	
+				pointRemX.push_back(pointA.x);
+				pointRemY.push_back(pointA.y);
+		}
+	}
+	/* 整张图像循环结束，滑窗完成<考虑使用2个滑窗，使用多线程实现>
+	*  TODO：对vector中的数据进行排序，获取其中x 最大最小值，y最大最小值
+	*  该矩形区域就是最终识别并定位的目标，同时送入到MLP分类器中分类杆塔类型
+	*  或者，使用DMP部件模型识别目标姿态  
+	*/
+
+	// 对框的左上点x,y值进行排序，获取最小的x,y，与最大的x,y
+	// sort中的排序算法是怎么实现的？
+	sort(pointRemX.begin(), pointRemX.end());  // sort排序，排序好的数据在原来的容器中，默认是
+	sort(pointRemY.begin(), pointRemY.end());
+	Point minPoint;
+	Point maxPoint;
+	minPoint.x = pointRemX[pointRemX.size() - 1];
+	minPoint.y = pointRemY[pointRemY.size() - 1];
+	maxPoint.x = pointRemX[0];
+	maxPoint.y = pointRemY[0];
+
+	// 以排序后的最小的x,y作为allROIs的左上顶点；以排序后的最大的x,y再加上box的宽高作为allROIs的右下顶点
+	Mat allROIs = imgFromCam(Rect(minPoint.x, minPoint.y,maxPoint.x+slide_W,maxPoint.y+slide_H));
+
+	// TODO
+	// 将allROIs交给MLP分类器分类不同的杆塔，MLP分类器训练样本设置为指定合适大小，比如 300*300？
+	// 然后将ROI区域resize一下，再用于检测
+	resize(allROIs, allROIs, Size(300, 300));
+	ANN_MLP_test(allROIs,-1);  // -1 表示用来单独调用ANN_MLP_test()，而非统计识别准确率
 	
-/*【4】 测试*/
-	SVM_test(testHOGMat);  //每获得一张图像就需要检测
-	testHOGMatANN = getTrainTestHOGMat("ANN", testHOGMatANN, "test", 3, 41, 50, true); //27张图片，感觉testHOGMatANN做返回值也没什么用
-	
+	// 将allROIs交给姿态分类器分类姿态
+	// TODO 
+	// DMP?模型？
+	// 边写论文边研究这个
+
 	cout << "程序结束咯！" << endl;
 	waitKey();
 	return 0;
