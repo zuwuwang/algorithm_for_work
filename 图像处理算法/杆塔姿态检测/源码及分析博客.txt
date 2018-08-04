@@ -1,0 +1,16 @@
+## DPM姿态检测
+C++源码及分析
+
+
+
+- C++实现DPM/latentSVM --- 第一篇 https://blog.csdn.net/yu_xianguo/article/details/49742645
+
+
+- C++实现cascade DPM --- 第二篇
+ https://blog.csdn.net/yu_xianguo/article/details/49742787
+
+
+- C++实现DPM/LatentSVM 完整代码下载 --- 第三篇 https://blog.csdn.net/yu_xianguo/article/details/49742903
+
+
+- C++实现DPM/LatentSVM 完整代码下载 --- 第四篇 https://blog.csdn.net/yu_xianguo/article/details/50443966

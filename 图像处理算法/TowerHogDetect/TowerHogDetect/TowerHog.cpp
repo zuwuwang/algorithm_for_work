@@ -87,8 +87,8 @@ int testRight_1 = 0;
 int testRight_2 = 0;
 
 /*  slidingWindow 参数  */
-#define slide_W 128
-#define slide_H 128
+#define slide_W 32
+#define slide_H 64
 #define slide_stride 100
 
 /********************************************************************************************************
@@ -105,9 +105,47 @@ std::vector<Mat> CalculateIntegralHOG(Mat& srcMat)
 	//【1】计算一阶微分的梯度图像
 	cv::Mat   sobelMatX;
 	cv::Mat   sobelMatY;
-	
-	cv::Sobel(srcMat, sobelMatX, CV_32F, 1, 0);
-	cv::Sobel(srcMat, sobelMatY, CV_32F, 0, 1);
+
+	cv::Mat   cannyMatX;
+	cv::Mat   cannyMatY;
+
+	// 图像预处理
+
+	// 高斯滤波，越来越模糊
+	Mat gussaBlur;
+	GaussianBlur(srcMat, gussaBlur, Size(3, 3), 0, 0);
+	imshow("滤波后", gussaBlur);
+	waitKey(0);
+
+	// 拉普拉斯图像增强
+	Mat kernel = (Mat_<float>(3, 3) << 0, -1, 0, 0, 5, 0, 0, -1, 0);
+	Mat enhance;
+	filter2D(srcMat, enhance, CV_8UC3, kernel);
+	imshow("图像增强", enhance);
+	waitKey(0);
+
+	// 直方图均衡化
+	Mat img_hist;
+	equalizeHist(srcMat, srcMat);
+	imshow("直方图均衡化", srcMat);
+	waitKey(0);
+
+	// sobel 边缘提取
+	cv::Sobel(srcMat, sobelMatX, CV_32F, 1, 0, 3, 0.3, 45);  //原来的参数是 48
+	cv::Sobel(srcMat, sobelMatY, CV_32F, 0, 1, 3, 0.3, 35);   // 40
+	imshow("sobelX", sobelMatX);
+	waitKey(0);
+	imshow("sobelY", sobelMatY);
+	cvWaitKey(0);
+
+	// canny边缘提取
+	cv::Canny(srcMat, cannyMatX, 60, 200, 3);
+	cv::Canny(srcMat, cannyMatY, 60, 200, 3);
+	imshow("cannyX", cannyMatX);
+	waitKey(0);
+	imshow("cannyY", cannyMatY);
+	cvWaitKey(0);
+
 	//for (int i = 0; i < sobelMatX.rows; i++)
 	//{
 	//	for (int j = 0; j < sobelMatX.cols; j++)
@@ -158,7 +196,7 @@ std::vector<Mat> CalculateIntegralHOG(Mat& srcMat)
 	{
 		for (int x = 0; x < srcMat.cols; x++)
 		{
-			int ind = angleMat.at<float>(y, x); // ind表示当前像素梯度在第几个bin，
+			int ind = angleMat.at<float>(y, x); // ind表示当前像素梯度在第几个bin
 			bins[ind].at<float>(y, x) += magnMat.at<float>(y, x);
 		}
 	}
@@ -258,7 +296,7 @@ Mat cacHOGFeature(cv::Mat srcImage, string srcImgPath)
 	std::vector<Mat> integrals = CalculateIntegralHOG(grayImage);
 	Mat image = grayImage.clone();   //在灰度图上画出HOG特征可视化
 	//Mat image(srcImage.rows, srcImage.cols, CV_8UC4);
-	image *= 0.5;
+	image *= 0;
 	//【2】遍历全图像，计算最终的梯度方向直方图HOG
 	cv::Mat HOGBlockMat(Size(NBINS, 1), CV_32F);
 	for (int y = CELLSIZE / 2; y < grayImage.rows; y += CELLSIZE)
@@ -299,9 +337,9 @@ Mat cacHOGFeature(cv::Mat srcImage, string srcImgPath)
 	}
 	cout << "在原灰度图上显示HOG特征图：" << endl;
 	imshow("HOG特征可视化：", image);
+	waitKey(0);
 	BLOCKNUM = HOGFeatureVector.size();
-	cout << "函数内：" << HOGFeatureVector.size() << endl;
-	//waitKey(0);
+	cout << "函数内：" << HOGFeatureVector.size() << endl;	
 	// HOGFeatureVector转换成HOGFeatureMat存储
 	Mat HOGFeatureMat(1, NBINS * BLOCKNUM, CV_32FC1);
 	for (int m = 0; m < BLOCKNUM; m++)
@@ -329,8 +367,8 @@ Mat getTrainTestHOGMat(string is_svm,Mat HOGMat, string train_test, int classNum
 	{
 		for (int j = start; j < end; j++)
 		{
-			string path = format("images\\srcImg\\charData\\%s\\%d%d.png", train_test.c_str(), i, j);
-			string name = format("charData\\%s\\%d%d.png", train_test.c_str(), i, j);
+			string path = format("images\\srcImg\\tower\\%s\\%d%d.jpg", train_test.c_str(), i, j);
+			string name = format("tower\\%s\\%d%d.jpg", train_test.c_str(), i, j);
 			cout << name << endl;
 			// 将图像resize到指定大小
 			imgResize(path);
@@ -341,9 +379,9 @@ Mat getTrainTestHOGMat(string is_svm,Mat HOGMat, string train_test, int classNum
 				cout << "没有读取到图像" << endl;
 				return Mat();
 			}
-				
+			namedWindow(name, WINDOW_KEEPRATIO);
 			imshow(name, image);
-		//	waitKey(0);
+			waitKey(0);
 			Mat HOGFeatureMat = cacHOGFeature(image, name);
 			cout << "获取到了HOGMatVector,vector大小为：" << BLOCKNUM << endl;
 			int index;
@@ -586,32 +624,32 @@ int main()
 {
 ///*【1】数据准备*/
 //	//设置HOG特征描述符的宽高
-//	cout << "准备数据中..." << endl;
-//	// 准备待训练的HOG特征描述矩阵
-//	Mat trainHOGMat(TRAIN_IMG_SVM, FEATURE_DIM, CV_32FC1);
-//	Mat testHOGMat(1, FEATURE_DIM, CV_32FC1);
-//
-///*【2】读原始图像，提取HOG特征描述*/
-//	trainHOGMat = getTrainTestHOGMat("SVM",trainHOGMat, "train", CLASS_NUM, 1, 5,false);
-//	cout << "数据准备完毕，准备训练SVM..." << endl;
-//
-///*【3】 训练SVM、MLP模型*/
-//	/* SVM */
-//	SVM_train(trainHOGMat);
-//	testHOGMat = getTrainTestHOGMat("SVM",testHOGMat, "test", CLASS_NUM, 5, 6,true);
-//	
-//
-//	/*  ANN  */
-//	Mat trainHOGMatANN(TRAIN_IMG_ANN, FEATURE_DIM, CV_32FC1);
-//	Mat testHOGMatANN(1, FEATURE_DIM, CV_32FC1);
-//	trainHOGMatANN = getTrainTestHOGMat("ANN",trainHOGMatANN, "train", 3, 1, 41,false);
-//	cout << "ANN 数据准备完毕，开始训练啦..." << endl;
-//	ANN_MLP_train(trainHOGMatANN);
-//
-///*【4】 模型测试*/
-//	SVM_test(testHOGMat);  //每获得一张图像就需要检测
-//	testHOGMatANN = getTrainTestHOGMat("ANN", testHOGMatANN, "test", 3, 41, 50, true); //27张图片，感觉testHOGMatANN做返回值也没什么用
-//
+	cout << "准备数据中..." << endl;
+	// 准备待训练的HOG特征描述矩阵
+	Mat trainHOGMat(TRAIN_IMG_SVM, FEATURE_DIM, CV_32FC1);
+	Mat testHOGMat(1, FEATURE_DIM, CV_32FC1);
+
+/*【2】读原始图像，提取HOG特征描述*/
+	trainHOGMat = getTrainTestHOGMat("SVM",trainHOGMat, "train", CLASS_NUM, 1, 5,false);
+	cout << "数据准备完毕，准备训练SVM..." << endl;
+
+/*【3】 训练SVM、MLP模型*/
+	/* SVM */
+	SVM_train(trainHOGMat);
+	testHOGMat = getTrainTestHOGMat("SVM",testHOGMat, "test", CLASS_NUM, 5, 6,true);
+	
+
+	/*  ANN  */
+	Mat trainHOGMatANN(TRAIN_IMG_ANN, FEATURE_DIM, CV_32FC1);
+	Mat testHOGMatANN(1, FEATURE_DIM, CV_32FC1);
+	trainHOGMatANN = getTrainTestHOGMat("ANN",trainHOGMatANN, "train", 3, 1, 41,false);
+	cout << "ANN 数据准备完毕，开始训练啦..." << endl;
+	ANN_MLP_train(trainHOGMatANN);
+
+/*【4】 模型测试*/
+	SVM_test(testHOGMat);  //每获得一张图像就需要检测
+	testHOGMatANN = getTrainTestHOGMat("ANN", testHOGMatANN, "test", 3, 41, 50, true); //27张图片，感觉testHOGMatANN做返回值也没什么用
+
 
 
 /*  注意 
@@ -643,7 +681,7 @@ int main()
 	  8、思考：深度学习中boundingbox是怎么回归的？回归的方法是怎么实现的？
 	*/ 
 	// 载入图片
-	string path = format("images//srcImg//tower//test//31.jpg");
+	string path = format("images//srcImg//tower//test//801.jpg");
 	Mat imgFromCam = imread(path, CV_LOAD_IMAGE_COLOR);
 	if ( imgFromCam.empty() )
 		return -1;
@@ -657,9 +695,9 @@ int main()
 	vector<int> pointRemY;
 
 	Point pointA, pointB, pointC, pointD; //boundingbox 的四个坐标点
-	for (y = 0; y < img_H - slide_H; y = y + slide_stride)
+	for (y = 0; y < img_H - slide_H; y = y + slide_H/2)
 	{
-		for (x = 0; x < img_W - slide_W; x = x + slide_stride)
+		for (x = 0; x < img_W - slide_W; x = x + slide_W/2)
 		{
 			Rect slidingWindow(x, y, slide_W, slide_H);
 			cout << "滑窗的面积为：" << slidingWindow.area() << endl;
@@ -682,20 +720,20 @@ int main()
 			pointC.x = x;
 			pointC.y = y + slide_H;
 
-			circle(lineSrcImg, pointA, 4, Scalar(0, 0, 0), -1); // thickness = -1 表示画实心圆
-			circle(lineSrcImg, pointB, 4, Scalar(0, 0, 0), -1);
+			//circle(lineSrcImg, pointA, 4, Scalar(0, 0, 0), -1); // thickness = -1 表示画实心圆
+			//circle(lineSrcImg, pointB, 4, Scalar(0, 0, 0), -1);
 			
 			line(lineSrcImg, pointA, pointB, Scalar(0, 0, 255), 1);
 			imshow("lineSrcImg", lineSrcImg);
 			cvWaitKey(0);
 
-			circle(lineSrcImg, pointC, 4, Scalar(0, 0, 0), -1);
+			//circle(lineSrcImg, pointC, 4, Scalar(0, 0, 0), -1);
 			line(lineSrcImg, pointA, pointC, Scalar(0, 0, 255), 1);
 			
 			imshow("lineSrcImg", lineSrcImg);
 			cvWaitKey(0);
 		
-			circle(lineSrcImg, pointD, 4, Scalar(0, 0, 0), -1);
+			//circle(lineSrcImg, pointD, 4, Scalar(0, 0, 0), -1);
 			line(lineSrcImg, pointC, pointD, Scalar(0, 0, 255), 1);
 			imshow("lineSrcImg", lineSrcImg);
 			cvWaitKey(0);
@@ -712,15 +750,17 @@ int main()
 			// 检测到ROI区域是目标之后，记录位置，存入vector中
 			// 这部分需要重新做下，训练SVM的图像和检测用的ROI区域图像的宽高要一致，或者将ROI resize
 			// TODO here
-			int prediction =	SVM_test(ROI); // 这里的ROI的维度不对，应该用ROI大小的区域重新训练SVM分类器
-			if (prediction = 0)
-			{
-				cout << "检测出来的是背景，检测下一个ROI" << endl;
-				break;
-			}
-			else	
-				pointRemX.push_back(pointA.x);
-				pointRemY.push_back(pointA.y);
+ 		//	int prediction =	SVM_test(ROI); // 这里的ROI的维度不对，应该用ROI大小的区域重新训练SVM分类器
+			//if (prediction = 0)
+			//{
+			//	cout << "检测出来的是背景，检测下一个ROI" << endl;
+			//	break;
+			//}
+			//else
+			//{
+			//	pointRemX.push_back(pointA.x);
+			//	pointRemY.push_back(pointA.y);
+			//}
 		}
 	}
 	/* 整张图像循环结束，滑窗完成<考虑使用2个滑窗，使用多线程实现>
