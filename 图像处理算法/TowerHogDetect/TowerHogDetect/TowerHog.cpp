@@ -30,7 +30,7 @@ HOG特征描述符的实现
 5)还有，这里的每个Cell的大小是20p*20p,每个Block的大小为4个Cell；当然如果用于行人检测的话，也可以使用
 其他的3*3或者5*5组合
 
-*********************************************************************************************************/
+*****************************************/
 #include <opencv2/opencv.hpp>
 #include <opencv2/highgui/highgui.hpp>
 //#include <opencv2/nonfree/features2d.hpp>
@@ -110,55 +110,39 @@ std::vector<Mat> CalculateIntegralHOG(Mat& srcMat)
 	cv::Mat   cannyMatY;
 
 	// 图像预处理
+	//// 高斯滤波，越来越模糊
+	//Mat gussaBlur;
+	//GaussianBlur(srcMat, gussaBlur, Size(3, 3), 0, 0);
+	//imshow("滤波后", gussaBlur);
+	//waitKey(0);
+	//// 拉普拉斯图像增强
+	//Mat kernel = (Mat_<float>(3, 3) << 0, -1, 0, 0, 5, 0, 0, -1, 0);
+	//Mat enhance;
+	//filter2D(srcMat, enhance, CV_8UC3, kernel);
+	//imshow("图像增强", enhance);
+	//waitKey(0);
 
-	// 高斯滤波，越来越模糊
-	Mat gussaBlur;
-	GaussianBlur(srcMat, gussaBlur, Size(3, 3), 0, 0);
-	imshow("滤波后", gussaBlur);
-	waitKey(0);
-
-	// 拉普拉斯图像增强
-	Mat kernel = (Mat_<float>(3, 3) << 0, -1, 0, 0, 5, 0, 0, -1, 0);
-	Mat enhance;
-	filter2D(srcMat, enhance, CV_8UC3, kernel);
-	imshow("图像增强", enhance);
-	waitKey(0);
-
-	// 直方图均衡化
-	Mat img_hist;
-	equalizeHist(srcMat, srcMat);
-	imshow("直方图均衡化", srcMat);
-	waitKey(0);
+	//// 直方图均衡化
+	//Mat img_hist;
+	//equalizeHist(srcMat, srcMat);
+	//imshow("直方图均衡化", srcMat);
+	//waitKey(0);
 
 	// sobel 边缘提取
 	cv::Sobel(srcMat, sobelMatX, CV_32F, 1, 0, 3, 0.3, 45);  //原来的参数是 48
 	cv::Sobel(srcMat, sobelMatY, CV_32F, 0, 1, 3, 0.3, 35);   // 40
-	imshow("sobelX", sobelMatX);
+	/*imshow("sobelX", sobelMatX);
 	waitKey(0);
 	imshow("sobelY", sobelMatY);
-	cvWaitKey(0);
+	cvWaitKey(0);*/
 
-	// canny边缘提取
-	cv::Canny(srcMat, cannyMatX, 60, 200, 3);
-	cv::Canny(srcMat, cannyMatY, 60, 200, 3);
-	imshow("cannyX", cannyMatX);
-	waitKey(0);
-	imshow("cannyY", cannyMatY);
-	cvWaitKey(0);
-
-	//for (int i = 0; i < sobelMatX.rows; i++)
-	//{
-	//	for (int j = 0; j < sobelMatX.cols; j++)
-	//		cout << sobelMatX.at<float>(i, j)<<' ';
-	//	cout << endl;
-	//}
-	//cout << "---------------------" << endl;
-	//for (int i = 0; i < sobelMatY.rows; i++)
-	//{
-	//	for (int j = 0; j < sobelMatY.cols; j++)
-	//		cout << sobelMatY.at<float>(i, j)<<' ';
-	//	cout << endl;
-	//}
+	//// canny边缘提取
+	//cv::Canny(srcMat, cannyMatX, 60, 200, 3);
+	//cv::Canny(srcMat, cannyMatY, 60, 200, 3);
+	//imshow("cannyX", cannyMatX);
+	//waitKey(0);
+	//imshow("cannyY", cannyMatY);
+	//cvWaitKey(0);
 
 	std::vector<Mat> bins(NBINS);
 	for (int i = 0; i < NBINS; i++)
@@ -288,8 +272,8 @@ Mat cacHOGFeature(cv::Mat srcImage, string srcImgPath)
 	grayImage.convertTo(grayImage, CV_8UC1);// 变成单通道的灰度图
 	
 	 std::vector<Mat> HOGFeatureVector;
-	//这里定义全局的HOGMatVector，便于在svmtrain中获取其大小
-	//HOGMatVector.clear();
+	// 如果定义全局的HOGMatVector，便于在svmtrain中获取其大小，但需要
+	// HOGMatVector.clear();
 	 cout << " 函数内：" << HOGFeatureVector.size() << endl;
 	
 	//【1】9个不同梯度方向上的9张梯度幅值的积分图像的生成
@@ -339,8 +323,10 @@ Mat cacHOGFeature(cv::Mat srcImage, string srcImgPath)
 	imshow("HOG特征可视化：", image);
 	waitKey(0);
 	BLOCKNUM = HOGFeatureVector.size();
-	cout << "函数内：" << HOGFeatureVector.size() << endl;	
-	// HOGFeatureVector转换成HOGFeatureMat存储
+	cout << "HOG特征维度即blockNumbe为：" << HOGFeatureVector.size() << endl;	
+	cout <<"BLOCKNUM*NBINS is "<< BLOCKNUM*NBINS << endl;
+	cout << "所设置的特征维度FEATURE_DIM大小为：" << FEATURE_DIM << endl;
+	// HOGFeatureVector转换成HOGFeatureMat存储，拉直
 	Mat HOGFeatureMat(1, NBINS * BLOCKNUM, CV_32FC1);
 	for (int m = 0; m < BLOCKNUM; m++)
 	{
@@ -397,6 +383,7 @@ Mat getTrainTestHOGMat(string is_svm,Mat HOGMat, string train_test, int classNum
 				float* Data = HOGMat.ptr<float>(index);
 				cout << "识别输入的图像的特征" << endl;
 			}
+			cout << " HOGMat.rows =  "<<HOGMat.rows <<"\t"<< "HOGMat.cols = "<< HOGMat.cols << endl;
 		//	cout << "---------------------------" << endl;
 			for (int n = 0; n < FEATURE_DIM; n++)
 			{
@@ -636,17 +623,15 @@ int main()
 /*【3】 训练SVM、MLP模型*/
 	/* SVM */
 	SVM_train(trainHOGMat);
-	testHOGMat = getTrainTestHOGMat("SVM",testHOGMat, "test", CLASS_NUM, 5, 6,true);
-	
-
 	/*  ANN  */
 	Mat trainHOGMatANN(TRAIN_IMG_ANN, FEATURE_DIM, CV_32FC1);
 	Mat testHOGMatANN(1, FEATURE_DIM, CV_32FC1);
-	trainHOGMatANN = getTrainTestHOGMat("ANN",trainHOGMatANN, "train", 3, 1, 41,false);
+	trainHOGMatANN = getTrainTestHOGMat("ANN",trainHOGMatANN, "train", 2, 1, 41,false);
 	cout << "ANN 数据准备完毕，开始训练啦..." << endl;
 	ANN_MLP_train(trainHOGMatANN);
 
 /*【4】 模型测试*/
+	testHOGMat = getTrainTestHOGMat("SVM", testHOGMat, "test", CLASS_NUM, 5, 6, true);
 	SVM_test(testHOGMat);  //每获得一张图像就需要检测
 	testHOGMatANN = getTrainTestHOGMat("ANN", testHOGMatANN, "test", 3, 41, 50, true); //27张图片，感觉testHOGMatANN做返回值也没什么用
 

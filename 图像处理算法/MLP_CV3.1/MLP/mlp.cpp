@@ -26,13 +26,13 @@ const int sampleNumAll = classNum * sampleNum;
 // debug 模式下报错 
 //const string dataPath = format("charData");  // 指定数据集的路径，or TowerData instead
 
-int SVM_TEST()
+int SVM_TRAIN_TEST()
 {
 	//训练2类数据，每类4张，指明图像的类别
 	int labels[8] = { 0, 0, 0, 0, 1, 1, 1, 1 };
 	Mat labelsMat(8, 1, CV_32SC1, labels);  //将label变成矩阵的形式，数据类型要为CV_32SC1
-
-	//设置样本宽高，由原始相机像素决定
+	// 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000 // 100个
+	// 设置样本宽高，由原始相机像素决定
 	int smpW = imgWidth;
 	int smpH = imgHigh;
 
@@ -120,7 +120,7 @@ int SVM_TEST()
 }
 
 
-int ANN_TEST()
+int ANN_TRAIN_TEST()
 {
 	// 14 x 23 矩阵，由原始图像大小决定
 	int smpW = imgWidth;
@@ -334,8 +334,8 @@ int main()
 
 	// 将resize后的图像送入SVM、MLP中分类训练，并输出检测结果
 	// 分类器测试
-//	SVM_TEST();  // 做背景、杆塔的分类，提取ROI区域，输入ANN中
-	ANN_TEST();  // 做姿态的分类，先做四分类，正面、侧45°、侧面、塔底
+//	SVM_TRAIN_TEST();  // 做背景、杆塔的分类，提取ROI区域，输入ANN中
+	ANN_TRAIN_TEST();  // 做姿态的分类，先做四分类，正面、侧45°、侧面、塔底
 
   //检测
 	// 以滑窗形式抽取原始图像矩形区域,提取HOG特征图，输入到目标检测分类器中分类，得到目标分类结果，剔除背景
